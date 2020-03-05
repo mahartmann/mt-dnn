@@ -1,4 +1,4 @@
-negscope_sherlock:
+negsherlock:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
