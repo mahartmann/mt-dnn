@@ -1,0 +1,17 @@
+negscope_sherlock:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  metric_meta:
+  - SeqEval
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
