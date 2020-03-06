@@ -13,3 +13,63 @@ negsherlock:
   split_names:
   - train
   task_type: SeqenceLabeling
+negbioscopeabstracts:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  metric_meta:
+  - SeqEval
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  task_type: SeqenceLabeling
+negbioscopefull:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  metric_meta:
+  - SeqEval
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  task_type: SeqenceLabeling
+specbioscopeabstracts:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  metric_meta:
+  - SeqEval
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  task_type: SeqenceLabeling
+specbioscopefull:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  metric_meta:
+  - SeqEval
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  task_type: SeqenceLabeling
