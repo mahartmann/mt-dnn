@@ -6,9 +6,12 @@ negsherlock:
   labels:
   - O
   - I
+  - X
+  - CLS
+  - SEP
   metric_meta:
   - SeqEval
-  n_class: 2
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -21,9 +24,12 @@ negbioscopeabstracts:
   labels:
   - O
   - I
+  - X
+  - CLS
+  - SEP
   metric_meta:
   - SeqEval
-  n_class: 2
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -36,9 +42,12 @@ negbioscopefull:
   labels:
   - O
   - I
+  - X
+  - CLS
+  - SEP
   metric_meta:
   - SeqEval
-  n_class: 2
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -51,9 +60,12 @@ specbioscopeabstracts:
   labels:
   - O
   - I
+  - X
+  - CLS
+  - SEP
   metric_meta:
   - SeqEval
-  n_class: 2
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -66,9 +78,12 @@ specbioscopefull:
   labels:
   - O
   - I
+  - X
+  - CLS
+  - SEP
   metric_meta:
   - SeqEval
-  n_class: 2
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
