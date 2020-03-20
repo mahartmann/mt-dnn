@@ -37,6 +37,9 @@ Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao and Tuo Zha
 SMART: Robust and Efficient Fine-Tuning for Pre-trained Natural Language Models through Principled Regularized Optimization <br/>
 [arXiv version](https://arxiv.org/abs/1911.03437) <br/>
 
+Xiaodong Liu, Yu Wang, Jianshu Ji, Hao Cheng, Xueyun Zhu, Emmanuel Awa, Pengcheng He, Weizhu Chen, Hoifung Poon, Guihong Cao, Jianfeng Gao<br/>
+The Microsoft Toolkit of Multi-Task Deep Neural Networks for Natural Language Understanding <br/>
+[arXiv version](https://arxiv.org/abs/2002.12804) <br/>
 
 
 ## Quickstart
@@ -218,9 +221,18 @@ We also used some code from: https://github.com/kevinduh/san_mrc <br/>
   journal={arXiv preprint arXiv:1911.03437},
   year={2019}
 }
+
+
+@article{liu2020mtmtdnn,
+  title={The Microsoft Toolkit of Multi-Task Deep Neural Networks for Natural Language Understanding},
+  author={Liu, Xiaodong and Wang, Yu and Ji, Jianshu and Cheng, Hao and Zhu, Xueyun and Awa, Emmanuel and He, Pengcheng and Chen, Weizhu and Poon, Hoifung and Cao, Guihong and Jianfeng Gao},
+  journal={arXiv preprint arXiv:2002.07972},
+  year={2020}
+}
+
 ```
 ### Contact Information
 
 For help or issues using MT-DNN, please submit a GitHub issue.
 
-For personal communication related to this package, please contact Xiaodong Liu (`xiaodl@microsoft.com`), Yu Wang (`yuwan@microsoft.com`), Pengcheng He (`penhe@microsoft.com`), Weizhu Chen (`wzchen@microsoft.com`), Jianshu Ji (`jianshuj@microsoft.com`) or Jianfeng Gao (`jfgao@microsoft.com`).
+For personal communication related to this package, please contact Xiaodong Liu (`xiaodl@microsoft.com`), Yu Wang (`yuwan@microsoft.com`), Pengcheng He (`penhe@microsoft.com`), Weizhu Chen (`wzchen@microsoft.com`), Jianshu Ji (`jianshuj@microsoft.com`), Hao Cheng (`chehao@microsoft.com`) or Jianfeng Gao (`jfgao@microsoft.com`).
