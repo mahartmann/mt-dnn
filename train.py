@@ -49,6 +49,7 @@ def model_config(parser):
     parser.add_argument('--init_ratio', type=float, default=1)
     parser.add_argument('--encoder_type', type=int, default=EncoderModelType.BERT)
     parser.add_argument('--num_hidden_layers', type=int, default=-1)
+    parser.add_argument('--pretrained_model_config', type=str, default='')
 
     # BERT pre-training
     parser.add_argument('--bert_model_type', type=str, default='bert-base-uncased')
@@ -156,6 +157,11 @@ def dump(path, data):
     with open(path, 'w') as f:
         json.dump(data, f)
 
+def load_json(fname):
+    with open(fname) as json_file:
+        data = json.load(json_file)
+    return data
+
 
 
 
@@ -232,7 +238,14 @@ def main():
     state_dict = None
 
     if os.path.exists(init_model):
-        state_dict = torch.load(init_model)
+        _state_dict = torch.load(init_model)
+        if not 'config' in _state_dict:
+            cfg = load_json(args.pretrained_model_config)
+            state_dict = {'state':_state_dict, 'config':cfg}
+
+        else:
+            state_dict = _state_dict
+
         config = state_dict['config']
     else:
         if opt['encoder_type'] not in EncoderModelType._value2member_map_:
