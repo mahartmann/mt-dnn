@@ -141,7 +141,7 @@ output_dir = args.output_dir
 if os.path.isdir(output_dir):
     # create new output dir
     output_dir = os.path.join(output_dir, str(uuid.uuid4()))
-    logger.info('Specified output dir exists. Creating new output dir {}'.format())
+    logger.info('Specified output dir exists. Creating new output dir {}'.format(output_dir))
 data_dir = args.data_dir
 args.train_datasets = args.train_datasets.split(',')
 args.test_datasets = args.test_datasets.split(',')
