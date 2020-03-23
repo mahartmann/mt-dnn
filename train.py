@@ -140,7 +140,7 @@ args = parser.parse_args()
 output_dir = args.output_dir
 if os.path.isdir(output_dir):
     # create new output dir
-    output_dir = os.path.join(output_dir, uuid.uuid4())
+    output_dir = os.path.join(output_dir, str(uuid.uuid4()))
     logger.info('Specified output dir exists. Creating new output dir {}'.format())
 data_dir = args.data_dir
 args.train_datasets = args.train_datasets.split(',')
