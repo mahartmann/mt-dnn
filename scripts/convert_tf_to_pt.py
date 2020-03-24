@@ -91,13 +91,13 @@ def train_config(parser):
 
 def convert(args):
     tf_checkpoint_path = args.tf_checkpoint_root
-    bert_config_file = os.path.join(tf_checkpoint_path, 'bert_config.json')
+    bert_config_file = os.path.join(tf_checkpoint_path, args.model_config_name)
     pytorch_dump_path = args.pytorch_checkpoint_path
     config = BertConfig.from_json_file(bert_config_file)
     opt = vars(args)
     opt.update(config.to_dict())
     model = SANBertNetwork(opt)
-    path = os.path.join(tf_checkpoint_path, 'bert_model.ckpt')
+    path = os.path.join(tf_checkpoint_path, args.checkpoint_name)
     logger.info('Converting TensorFlow checkpoint from {}'.format(path))
     init_vars = tf.train.list_variables(path)
     names = []
@@ -187,6 +187,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--tf_checkpoint_root', type=str, required=True)
     parser.add_argument('--pytorch_checkpoint_path', type=str, required=True)
+    parser.add_argument('--model_config_name', type=str, required=True)
+    parser.add_argument('--checkpoint_name', type=str, required=True)
     parser = model_config(parser)
     parser = train_config(parser)
     args = parser.parse_args()
