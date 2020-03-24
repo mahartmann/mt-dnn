@@ -259,7 +259,7 @@ def main(args):
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_model_type]
     tokenizer = tokenizer_class.from_pretrained(args.model, do_lower_case=do_lower_case)
-
+    output_dir = args.model
     if 'uncased' in args.model:
         mt_dnn_suffix = '{}_uncased'.format(mt_dnn_suffix)
     else:
@@ -267,8 +267,9 @@ def main(args):
 
     if do_lower_case:
         mt_dnn_suffix = '{}_lower'.format(mt_dnn_suffix)
+        output_dir = '{}_lower'.format(output_dir)
 
-    mt_dnn_root = os.path.join(root, mt_dnn_suffix)
+    mt_dnn_root = os.path.join(root, output_dir)
     if not os.path.isdir(mt_dnn_root):
         os.mkdir(mt_dnn_root)
 
