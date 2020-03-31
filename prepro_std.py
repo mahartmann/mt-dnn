@@ -234,6 +234,10 @@ def parse_args():
         description='Preprocessing GLUE/SNLI/SciTail dataset.')
     parser.add_argument('--model', type=str, default='bert-base-uncased',
                         help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
+    parser.add_argument('--literal_model_type', type=str, default='bert',
+                        help='the type of base model, e.g. bert or xlnet')
+    parser.add_argument('--model', type=str, default='bert-base-uncased',
+                        help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='data/canonical_data')
     parser.add_argument('--task_def', type=str, default="experiments/glue/glue_task_def.yml")
@@ -248,7 +252,8 @@ def main(args):
     root = args.root_dir
     assert os.path.exists(root)
 
-    literal_model_type = args.model.split('-')[0].upper()
+    #literal_model_type = args.model.split('-')[0].upper()
+    literal_model_type = args.literal_model_type.upper()
     encoder_model = EncoderModelType[literal_model_type]
     literal_model_type = literal_model_type.lower()
     mt_dnn_suffix = literal_model_type
