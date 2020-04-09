@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from pretrained_models import MODEL_CLASSES
 from transformers import BertConfig
+from transformers import BertModel
 
 from module.dropout_wrapper import DropoutWrapper
 from module.san import SANClassifier, MaskLmHeader
@@ -12,6 +13,7 @@ from module.san_model import SanModel
 from data_utils.task_def import EncoderModelType, TaskType
 import tasks
 from experiments.exp_def import TaskDef
+from extensions.hooks import gradient_reversal_hook, MyHook
 
 class LinearPooler(nn.Module):
     def __init__(self, hidden_size):
@@ -34,6 +36,11 @@ class SANBertNetwork(nn.Module):
     def __init__(self, opt, bert_config=None, initial_from_local=False):
         super(SANBertNetwork, self).__init__()
         self.dropout_list = nn.ModuleList()
+
+        self.forward_hooks = []
+        self.backward_hooks = []
+        self.scoring_forward_hooks = {}
+        self.scoring_backward_hooks = {}
 
         if opt['encoder_type'] not in EncoderModelType._value2member_map_:
             raise ValueError("encoder_type is out of pre-defined types")
@@ -74,6 +81,7 @@ class SANBertNetwork(nn.Module):
             dropout = DropoutWrapper(task_dropout_p, opt['vb_dropout'])
             self.dropout_list.append(dropout)
             task_obj = tasks.get_task_obj(task_def)
+            print('{}: {}'.format(task_id, task_obj))
             if task_obj is not None:
                 out_proj = task_obj.train_build_task_layer(decoder_opt, hidden_size, lab, opt, prefix='answer', dropout=dropout)
             elif task_type == TaskType.Span:
@@ -92,7 +100,13 @@ class SANBertNetwork(nn.Module):
                     out_proj = SANClassifier(hidden_size, hidden_size, lab, opt, prefix='answer', dropout=dropout)
                 else:
                     out_proj = nn.Linear(hidden_size, lab)
+            if task_type == TaskType.Adversarial:
+                # register the hook on the ouput layer
+                out_proj.register_backward_hook(gradient_reversal_hook)
+            # register hooks for checking gradients
             self.scoring_list.append(out_proj)
+            self.scoring_forward_hooks[task_id] = (MyHook(out_proj))
+            self.scoring_backward_hooks[task_id] = (MyHook(out_proj, backward=True))
 
         self.opt = opt
         self._my_init()
@@ -101,6 +115,13 @@ class SANBertNetwork(nn.Module):
         if not initial_from_local:
             config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
             self.bert = model_class.from_pretrained(opt['init_checkpoint'],config=self.preloaded_config)
+            #self.bert = BertModel(self.preloaded_config)
+
+        #register hooks
+        for module in list(self.bert._modules.items()):
+            self.forward_hooks.append((MyHook(module[1])))
+            self.backward_hooks.append(MyHook(module[1], backward=True))
+
 
     def _my_init(self):
         def init_weights(module):

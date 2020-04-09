@@ -26,9 +26,15 @@ def write_train_dev_test_data(fstem, data):
     split_idxs = generate_splits(len(data))
     for i, splt in enumerate(['train', 'dev', 'test']):
         idxs = split_idxs[i]
-        write_split('{}_{}.tsv'.format(fstem, splt), [data[idx] for idx in idxs])
-        print('{} has {} instances. Writing to {}'.format(splt, len(split_idxs[i]), '{}_{}.tsv'.format(fstem, splt) ))
-    return
+        out_data = []
+        for idx in idxs:
+
+            for elm in data[idx]:
+                out_data.append(elm)
+
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
+    return [data[idx] for idx in split_idxs[0]], [data[idx] for idx in split_idxs[1]], [data[idx] for idx in split_idxs[2]]
 
 
 

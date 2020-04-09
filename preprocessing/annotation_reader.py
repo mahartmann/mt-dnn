@@ -3,6 +3,14 @@ from preprocessing.data_splits import write_train_dev_test_data
 import xml.etree.ElementTree as ET
 import itertools
 import os
+from preprocessing import clue_detection
+
+import spacy
+from spacy.matcher import Matcher
+from spacy.lang.en import English
+from spacy.tokens import Span
+from spacy.tokenizer import Tokenizer
+import ast
 
 
 def read_file(fname):
@@ -48,7 +56,11 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                 cids = set([get_label(elm[1]).split('-')[-1] for elm in constituents[sent] if
                             get_label(elm[1]).startswith('cue-{}'.format(cue_type))])
                 print('Labels: {}'.format(cids))
+                sent_data = []
+
                 for cid in cids:
+                    toks = []
+                    labels = []
                     for chunk, tag in constituents[sent]:
 
                         def get_all_tags(node, c2p):
@@ -81,7 +93,10 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                                 labels.append(label)
                                 print('{}\t{}\t{}'.format(t, label, ' '.join(get_all_tags(tag, c2p))))
 
-                    data.append([labels, toks])
+                    sent_data.append([labels, toks])
+                if len(sent_data) > 0:
+                    data.append(sent_data)
+
 
     return data
 
@@ -129,6 +144,7 @@ def read_sherlock(fname, setting='augment'):
         if len(negations) > 0:
             print('\n')
             print(negations)
+            sent_data = []
             for negation in negations:
                 toks = []
                 labels = []
@@ -161,7 +177,10 @@ def read_sherlock(fname, setting='augment'):
                             labels.append(neg)
                     else:
                         print('{}\t{}\t{}'.format(splt[3], neg, cue_long))
-                data.append([labels, toks])
+
+                sent_data.append([labels, toks])
+            if len(sent_data) > 0:
+                data.append(sent_data)
     return data
 
 
@@ -326,6 +345,7 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             for label in labels:
                 if label.split(':')[-1].startswith('R'):
                     sent_labels.add(label.split(':')[-1])
+        sent_data = []
         for sent_label in sent_labels:
             print('\n')
             print(sent_label)
@@ -350,7 +370,10 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
                     print('{}\tUnlabeled'.format(tok))
                     out_toks.append(tok)
                     out_labels.append('O')
-            data.append([out_labels, out_toks])
+
+            sent_data.append([out_labels, out_toks])
+        if len(sent_data) > 0:
+            data.append(sent_data)
     return data
 
 def read_sfu_en(path, setting='augment'):
@@ -410,6 +433,7 @@ def read_sfu_en_doc(fname, setting):
                 cues.extend([elm for elm in l if 'negation' in elm])
             cues = set(cues)
             if len(cues) > 0:
+                sent_data = []
                 for cue in cues:
                     outtoks = []
                     outlabels = []
@@ -433,7 +457,9 @@ def read_sfu_en_doc(fname, setting):
                             print('{}\t{}'.format(t, lsurf))
                             outtoks.append(t)
                             outlabels.append(lsurf)
-                    data.append([outlabels, outtoks])
+                    sent_data.append([outlabels, outtoks])
+                if len(sent_data) > 0:
+                    data.append(sent_data)
     return data
 
 
@@ -514,6 +540,7 @@ def read_sfu_es_doc(fname, setting):
             scopes.extend([elm for elm in l if elm.startswith('scope')])
         scopes = set(scopes)
         print(scopes)
+        sent_data = []
         for scope in scopes:
             outtoks = []
             outlabels = []
@@ -539,7 +566,9 @@ def read_sfu_es_doc(fname, setting):
                     print('{}\t{}'.format(t, lsurf))
                     outtoks.append(t)
                     outlabels.append(lsurf)
-            data.append([outlabels, outtoks])
+            sent_data.append([outlabels, outtoks])
+        if len(sent_data) > 0:
+            data.append(sent_data)
     return data
 
 
@@ -587,6 +616,7 @@ def read_ddi_doc(fname, setting):
                     sent_tags.extend(
                         [elm.attrib['id'] for elm in get_all_parents(v, c2p) if elm.attrib['id'] != 'X'])
                 sent_tags = set(sent_tags)
+                sent_data = []
                 for sent_tag in sent_tags:
                     print('\n{}'.format(sent_tag))
                     out_toks = []
@@ -615,7 +645,9 @@ def read_ddi_doc(fname, setting):
                                 out_toks.append(tok)
                                 out_labels.append(out_label)
 
-                    data.append([out_labels, out_toks])
+                    sent_data.append([out_labels, out_toks])
+                if len(sent_data) > 0:
+                    data.append(sent_data)
     except ET.ParseError:
         raise ET.ParseError
     return data
@@ -649,7 +681,7 @@ def read_ita_doc(fname, setting):
     for clue in mark.iter('CUE-NEG'):
         for t in clue.iter('token_anchor'):
             tid = t.attrib['t_id']
-            tid2anno.setdefault(tid, set()).add('{}_scope{}'.format('CUE', clue.attrib['m_id'], clue.attrib['scope']))
+            tid2anno.setdefault(tid, set()).add('{}_scope{}'.format('CUE', clue.attrib['scope']))
     for clue in mark.iter('SCOPE-NEG'):
         sids = set()
         scope_toks = []
@@ -667,7 +699,7 @@ def read_ita_doc(fname, setting):
             if tid in tid2anno:
                 sent_labels.extend([elm.split('_')[-1] for elm in tid2anno[tid] if elm.startswith('SCOPE')])
         sent_labels = set(sent_labels)
-
+        sent_data = []
         for scope in sent_labels:
             out_labels = []
             out_toks = []
@@ -679,10 +711,13 @@ def read_ita_doc(fname, setting):
                 out_label = 'O'
                 if tid in tid2anno:
                     labels = tid2anno[tid]
+                    print(labels)
                     if 'SCOPE_{}'.format(scope) in labels:
                         out_label = 'I'
                     if 'CUE_scope{}'.format(scope) in labels:
+
                         if setting == 'augment':
+
                             out_toks.append('CUE')
                             out_labels.append(out_label)
                             all_labelss.append(labels)
@@ -692,28 +727,190 @@ def read_ita_doc(fname, setting):
                 all_labelss.append(labels)
                 out_toks.append(tok)
                 out_labels.append(out_label)
-            data.append([out_labels, out_toks])
+            sent_data.append([out_labels, out_toks])
+        if len(sent_data) > 0:
+            data.append(sent_data)
 
-            for t, l, a in zip(out_toks, out_labels, all_labelss):
-                print('{}\t{}\t{}'.format(t, l, a))
+
     return data
 
+
+def read_socc(pname, setting='augment'):
+    data = []
+    for f in os.listdir(pname):
+        dir_name = os.path.join(pname, f)
+        for fname in [os.path.join(dir_name, f) for f in os.listdir(dir_name) if f.startswith('CURATION')]:
+            data.extend(read_socc_doc(fname, setting))
+    return data
+
+
+def read_socc_doc(fname, setting):
+    data = []
+    lines = read_file(fname)
+    current_anno_id = 0
+    sents = {}
+    for line in lines:
+        if line != '' and not line.startswith('#'):
+            splt = line.split('\t')
+            if len(splt) < 4:
+                break
+            sid = splt[0].split('-')[0]
+            tok = splt[2]
+            annos = set(splt[3].split('|'))
+            annos_with_id = set()
+            for anno in annos:
+                if '[' in anno:
+                    aid = int(anno.split('[')[-1].strip(']'))
+                    if aid > current_anno_id:
+                        current_anno_id = aid
+
+                    annos_with_id.add('{}_{}'.format(anno.split('[')[0], aid))
+                else:
+                    if anno == 'NEG':
+                        current_anno_id += 1
+                        annos_with_id.add('NEG_{}'.format(current_anno_id))
+
+            sents.setdefault(sid, []).append((tok, annos_with_id))
+    for sid, sent in sents.items():
+        sent_cues = set()
+        for tok, annos in sent:
+            for anno in annos:
+                if 'NEG' in anno:
+                    sent_cues.add(anno)
+        sent_data = []
+        for sent_cue in sent_cues:
+            out_toks = []
+            out_labels = []
+            print('\n')
+            print(fname)
+            print(sent_cue)
+            aid = int(sent_cue.split('_')[-1])
+            for tok, annos in sent:
+
+                if 'SCOPE_{}'.format(aid + 1) in annos:
+                    display_label = 'SCOPE_{}'.format(aid + 1)
+                    out_label = 'I'
+                else:
+                    display_label = 'O'
+                    out_label = 'O'
+                if sent_cue in annos:
+                    if setting == 'augment':
+                        out_tok = 'CUE'
+                        out_toks.append(out_tok)
+                        print(out_tok, display_label)
+                out_tok = tok
+                out_toks.append(out_tok)
+                out_labels.append(out_label)
+                print(out_tok, display_label)
+            sent_data.append([out_labels, out_toks])
+        if len(sent_data) > 0:
+            data.append(sent_data)
+    return data
+
+def read_dtneg(fname, setting='augment'):
+    lines = read_file(fname)
+    data = []
+    answers = set()
+    for line in lines:
+        if line.startswith('ANNOTATEDANSWER'):
+            if line not in answers:
+                sent_data = []
+                answers.add(line)
+                text = line.strip('ANNOTATEDANSWER:\t')
+                text = text.replace('>>', '>')
+                text = text.replace('<<', '<')
+                text = text.replace('>', ' >')
+                text = text.replace('<', '< ')
+                text = text.replace('[', '[ ')
+                text = text.replace(']', ' ]')
+
+                label = 'O'
+                is_clue = False
+                print('\n')
+                out_labels = []
+                out_toks = []
+                for tok in text.split():
+                    if tok == '[':
+                        label = 'I'
+                    elif tok == ']':
+                        label = 'O'
+                    elif tok == '<':
+                        is_clue = True
+                    elif tok == '>':
+                        is_clue = False
+                    else:
+                        if is_clue and setting =='augment':
+                            out_toks.append('CUE')
+                            out_labels.append(label)
+                        out_toks.append(tok.strip('{}'))
+                        out_labels.append(label)
+                if len(out_labels) > 3:
+                    for t, l in zip(out_toks, out_labels):
+                        print(t,l)
+                    sent_data.append([out_labels, out_toks])
+                if len(sent_data) > 0:
+                    data.append(sent_data)
+    return data
+
+def get_clues(data):
+    clues = set()
+    for labels, seq in data:
+        cue = []
+        for i, tok in enumerate(seq):
+            if i == len(seq) -1:
+                clues.add(' '.join(cue))
+                break
+            if tok == 'CUE':
+                cue.append(seq[i + 1])
+                if i + 2 > len(seq)-1 or seq[i + 2] != 'CUE':
+                    clues.add(' '.join(cue))
+                    cue = []
+    return clues
+
+
+
+def load_data_from_tsv(fname):
+    data = []
+    with open(fname) as f:
+        for line in f.readlines():
+            splt = line.split('\t')
+            labels = ast.literal_eval(splt[1].strip())
+            seq = ast.literal_eval(splt[2].strip())
+            data.append([labels, seq])
+    return data
 
 if __name__=="__main__":
 
     datasets = ['biofull', 'bioabstracts', 'bio',
                 'sherlocken', 'sherlockzh',
                 'iula', 'sfuen', 'sfues',
-                'ddi', 'ita']
+                'ddi', 'ita', 'socc', 'dtneg']
 
+    #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
+    #datasets = ['sherlockzh']
+    clues = set()
     # parse bioscope abstracts
     import configparser
 
     cfg = 'config.cfg'
     config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     config.read(cfg)
-    outpath = os.path.join(config.get('Files', 'data'), 'formatted')
+    outpath = config.get('Files', 'preproc_data')
     make_directory(outpath)
+
+    # load lexicon for silver clue detection
+
+    # it doesn't matter which model we load here because we only do white space or rule-based tokenization anyway
+    nlp = spacy.load('en')
+    nlp.tokenizer = Tokenizer(nlp.vocab)
+    matcher = Matcher(nlp.vocab)
+
+    lexicon_file = config.get('Files', 'triggers_en')
+    triggers = read_file(lexicon_file)
+    clue_detection.setup_matcher(triggers, matcher)
+
+
+
     for ds in datasets:
         if ds == 'biofull':
             data = read_bioscope(config.get('Files', ds))
@@ -725,6 +922,7 @@ if __name__=="__main__":
             data = read_bioscope(config.get('Files', 'biofull'))
             data.extend(read_bioscope(config.get('Files', 'bioabstracts')))
             write_train_dev_test_data(os.path.join(outpath, ds), data)
+
         elif ds == 'sherlocken':
             data = read_sherlock(config.get('Files', ds))
             write_train_dev_test_data(os.path.join(outpath, ds), data)
@@ -736,6 +934,7 @@ if __name__=="__main__":
             write_train_dev_test_data(os.path.join(outpath, ds), data)
         elif ds == 'sfuen':
             data = read_sfu_en(config.get('Files', ds))
+
             write_train_dev_test_data(os.path.join(outpath, ds), data)
         elif ds == 'sfues':
             data = read_sfu_es(config.get('Files', ds))
@@ -743,10 +942,23 @@ if __name__=="__main__":
         elif ds == 'ddi':
             data_train = read_ddi(config.get('Files', 'dditrain'))
             data_test = read_ddi(config.get('Files', 'dditest'))
+            data = data_train + data_test
+            write_train_dev_test_data(os.path.join(outpath, ds), data)
         elif ds == 'ita':
             data = read_ita(config.get('Files', 'ita1'))
             data.extend(read_ita(config.get('Files', 'ita2')))
             write_train_dev_test_data(os.path.join(outpath, ds), data)
+        elif ds == 'socc':
+            data = read_socc(config.get('Files', 'socc'))
+            write_train_dev_test_data(os.path.join(outpath, ds), data)
+        elif ds == 'dtneg':
+            data = read_dtneg(config.get('Files', 'dtneg'))
+            write_train_dev_test_data(os.path.join(outpath, ds), data)
+
+
+        print(clues)
+        for clue in clues:
+            print(clue)
 
 
 
