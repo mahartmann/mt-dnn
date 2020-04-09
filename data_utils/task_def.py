@@ -8,6 +8,7 @@ class TaskType(IntEnum):
     Span = 4
     SeqenceLabeling = 5
     MaskLM = 6
+    Adversarial = 7
 
 class DataFormat(IntEnum):
     PremiseOnly = 1
