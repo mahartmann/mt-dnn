@@ -6,10 +6,7 @@ def gradient_reversal_hook(module, grad_out, grad_in):
     :param grad_in:
     :return:
     """
-    print(len(grad_out))
-    print(grad_out)
-    print(len(grad_in))
-    print(grad_in)
+   
     return (grad_out[0]*-1,grad_out[1]*-1, grad_out[2]*-1)
 
 
