@@ -62,25 +62,22 @@ def compute_pcs(predicts, labels, label_mapper):
     :param labels:
     :return:
     """
-    y_true, y_pred = [], []
     def trim(predict, label):
         temp_1 = []
         temp_2 = []
         for j, m in enumerate(predict):
-            if j == 0:
-                continue
             if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
                 temp_1.append(label_mapper[label[j]])
                 temp_2.append(label_mapper[m])
-        temp_1.pop()
-        temp_2.pop()
-        y_true.append(temp_1)
-        y_pred.append(temp_2)
+        return temp_2, temp_1
+
     tp = 0.
+
     for predict, label in zip(predicts, labels):
-        trim(predict, label)
+        predict, label = trim(predict, label)
         if predict == label:
             tp += 1
+
     return tp/len(predicts)
 
 
@@ -145,3 +142,16 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
             metric = metric_func(scores, golds)
         metrics[metric_name] = metric
     return metrics
+
+
+if __name__=="__main__":
+    pred = [0,0,1,1,1,1]
+    gold = [0,0,1,1,1,1]
+    preds = [pred,pred]
+    golds = [gold, gold]
+    res  = compute_pcs(preds, golds, label_mapper={0:0, 1:1})
+    print(res)
+    import uuid
+
+    unique_filename = str(uuid.uuid4())
+    print(unique_filename)
