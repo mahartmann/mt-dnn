@@ -30,6 +30,7 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
     root = ET.parse(fname).getroot()
     data = []
     cue_data = []
+
     for doc in root.iter('Document'):
         for part in doc.iter('DocumentPart'):
             for sent in part.iter('sentence'):
@@ -62,6 +63,8 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                 for cid in cids:
                     toks = []
                     labels = []
+                    cue_labelseq = []
+                    is_cue_tok = False
                     for chunk, tag in constituents[sent]:
 
                         def get_all_tags(node, c2p):
@@ -75,7 +78,7 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                         all_tags = set(get_all_tags(tag, c2p))
                         if chunk is not None:
                             for t in chunk.split():
-
+                                is_cue_tok = False
                                 if 'cue-{}-{}'.format(cue_type, cid) in all_tags:
 
                                     if setting == 'augment':
@@ -86,15 +89,19 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                                     elif setting == 'replace':
                                         t = 'CUE'
                                         label = 'I'
+                                    elif setting == 'embed':
+                                        is_cue_tok = True
                                 elif 'xcope-{}'.format(cid) in all_tags:
                                     label = 'I'
                                 else:
                                     label = 'O'
                                 toks.append(t)
                                 labels.append(label)
+                                if is_cue_tok: cue_labelseq.append(1)
+                                else: cue_labelseq.append(0)
                                 print('{}\t{}\t{}'.format(t, label, ' '.join(get_all_tags(tag, c2p))))
 
-                    sent_data.append([labels, toks])
+                    sent_data.append([labels, toks, cue_labelseq])
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     # get clue annotated data
@@ -937,7 +944,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    #datasets = ['bioabstracts']
+    datasets = ['biofull']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -960,18 +967,18 @@ if __name__=="__main__":
     clue_detection.setup_matcher(triggers, matcher)
 
 
-
+    setting = 'embed'
     for ds in datasets:
         if ds == 'biofull':
-            data, cue_data = read_bioscope(config.get('Files', ds))
+            data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bioabstracts':
-            data, cue_data = read_bioscope(config.get('Files', ds))
+            data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bio':
-            data, cue_data = read_bioscope(config.get('Files', 'biofull'))
+            data, cue_data = read_bioscope(config.get('Files', 'biofull'), setting=setting)
             data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'))
             data.extend(data_extension)
             cue_data.extend(cue_data_extension)

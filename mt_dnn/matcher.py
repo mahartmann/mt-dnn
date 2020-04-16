@@ -33,7 +33,7 @@ def generate_decoder_opt(enable_san, max_opt):
         opt_v = max_opt
     return opt_v
 class SANBertNetwork(nn.Module):
-    def __init__(self, opt, bert_config=None, initial_from_local=False):
+    def __init__(self, opt, bert_config=None, initial_from_local=False, cue_embeddings=True):
         super(SANBertNetwork, self).__init__()
         self.dropout_list = nn.ModuleList()
 
@@ -108,14 +108,18 @@ class SANBertNetwork(nn.Module):
             self.scoring_forward_hooks[task_id] = (MyHook(out_proj))
             self.scoring_backward_hooks[task_id] = (MyHook(out_proj, backward=True))
 
+            if cue_embeddings:
+                # = nn.Embedding(hidden_size, lab)
+                self.cue_embeddings = nn.Embedding(2, hidden_size)
+
         self.opt = opt
         self._my_init()
 
         # if not loading from local, loading model weights from pre-trained model, after initialization
         if not initial_from_local:
             config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
-            self.bert = model_class.from_pretrained(opt['init_checkpoint'],config=self.preloaded_config)
-            #self.bert = BertModel(self.preloaded_config)
+            #self.bert = model_class.from_pretrained(opt['init_checkpoint'],config=self.preloaded_config)
+            self.bert = BertModel(self.preloaded_config)
 
         #register hooks
         for module in list(self.bert._modules.items()):
@@ -135,15 +139,27 @@ class SANBertNetwork(nn.Module):
 
         self.apply(init_weights)
 
-    def encode(self, input_ids, token_type_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
+    def encode(self, input_ids, token_type_ids, attention_mask, cue_type_ids):
+        if cue_type_ids is 1:
+            outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask)
+        else:
+            # get embeddings
+            bert_embeddings = self.bert.embeddings(input_ids=input_ids, token_type_ids=token_type_ids)
+            # add cue type embeddings
+            cue_embeds = self.cue_embeddings(cue_type_ids)
+            print(cue_embeds)
+            input_representations = bert_embeddings + cue_embeds
+            print(input_representations)
+            outputs = self.bert(input_ids=None, token_type_ids=token_type_ids, inputs_embeds=input_representations,
+                                                          attention_mask=attention_mask)
+            # input into bert
         sequence_output = outputs[0]
         pooled_output = outputs[1]
         return sequence_output, pooled_output
 
-    def forward(self, input_ids, token_type_ids, attention_mask, premise_mask=None, hyp_mask=None, task_id=0):
-        sequence_output, pooled_output = self.encode(input_ids, token_type_ids, attention_mask)
+    def forward(self, input_ids, token_type_ids, attention_mask, cue_type_ids, premise_mask=None, hyp_mask=None, task_id=0):
+        sequence_output, pooled_output = self.encode(input_ids, token_type_ids, attention_mask, cue_type_ids=cue_type_ids)
 
         decoder_opt = self.decoder_opt[task_id]
         task_type = self.task_types[task_id]

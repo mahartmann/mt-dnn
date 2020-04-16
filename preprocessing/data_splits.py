@@ -24,17 +24,22 @@ def generate_splits(num_data):
 
 def write_train_dev_test_data(fstem, data):
     split_idxs = generate_splits(len(data))
+    number_elms = 2
     for i, splt in enumerate(['train', 'dev', 'test']):
         idxs = split_idxs[i]
         out_data = []
         for idx in idxs:
             for elm in data[idx]:
                 out_data.append(elm)
-        write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+        if len(elm[2]) > 0:
+            fstem += 'embed'
+            number_elms = 3
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data, number_elms)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
     return  split_idxs
 
 def write_train_dev_test_cue_data(fstem, data, split_idxs):
+    number_elms = 2
     for i, splt in enumerate(['train', 'dev', 'test']):
         out_data = []
         idxs = split_idxs[i]
@@ -43,17 +48,22 @@ def write_train_dev_test_cue_data(fstem, data, split_idxs):
 
             out_data.append([['I' if l.startswith('1') else 'O' for l in elm[0]  ], elm[1]])
 
-        write_split('{}#cues_{}.tsv'.format(fstem, splt), out_data)
+        write_split('{}#cues_{}.tsv'.format(fstem, splt), out_data, number_elms)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}#cues_{}.tsv'.format(fstem, splt) ))
     return
 
 
 
 
-def write_split(fname, data):
+def write_split(fname, data, num_of_elms):
     outlines = []
-    for l, t in data:
-        outlines.append('{}\t{}\t{}\n'.format(len(outlines), l, t))
+    if num_of_elms == 2:
+        for l, t in data:
+            outlines.append('{}\t{}\t{}\n'.format(len(outlines), l, t))
+    elif num_of_elms == 3:
+        for l, t, c in data:
+            outlines.append('{}\t{}\t{}\t{}\n'.format(len(outlines), l, t, c))
+
     write_lines(fname, outlines)
 
 

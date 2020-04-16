@@ -18,6 +18,7 @@ UNK_ID=100
 BOS_ID=101
 
 class MultiTaskBatchSampler(BatchSampler):
+
     def __init__(self, datasets, batch_size, mix_opt, extra_task_ratio):
         self._datasets = datasets
         self._batch_size = batch_size
@@ -202,12 +203,14 @@ class Collater:
                  is_train=True,
                  dropout_w=0.005,
                  soft_label=False,
-                 encoder_type=EncoderModelType.BERT):
+                 encoder_type=EncoderModelType.BERT,
+                 cue_embeddings=True):
         self.is_train = is_train
         self.dropout_w = dropout_w
         self.soft_label_on = soft_label
         self.encoder_type = encoder_type
         self.pairwise_size = 1
+        self.cue_embeddings=cue_embeddings
 
     def __random_select__(self, arr):
         if self.dropout_w > 0:
@@ -243,7 +246,13 @@ class Collater:
                 type_id = sample['type_id'][idx]
                 uid = sample['ruid'][idx]
                 olab = sample['olabel'][idx]
-                newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'], 'true_label': olab})
+                if self.cue_embeddings:
+                    cue_marker = sample['cue_marker'][idx]
+                    newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'], 'true_label': olab, 'cue_marker':cue_marker})
+                else:
+                    newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label': sample['label'],
+                                     'true_label': olab})
+
         return newbatch
 
     def __if_pair__(self, data_type):
@@ -346,6 +355,7 @@ class Collater:
         return len(batch)
 
     def _prepare_model_input(self, batch, data_type):
+
         batch_size = self._get_batch_size(batch)
         tok_len = self._get_max_len(batch, key='token_id')
         #tok_len = max(len(x['token_id']) for x in batch)
@@ -354,10 +364,13 @@ class Collater:
             token_ids = torch.LongTensor(batch_size, tok_len).fill_(1)
             type_ids = torch.LongTensor(batch_size, tok_len).fill_(0)
             masks = torch.LongTensor(batch_size, tok_len).fill_(0)
+
         else:
             token_ids = torch.LongTensor(batch_size, tok_len).fill_(0)
             type_ids = torch.LongTensor(batch_size, tok_len).fill_(0)
             masks = torch.LongTensor(batch_size, tok_len).fill_(0)
+            cue_markers = torch.LongTensor(batch_size, tok_len).fill_(0)
+
         if self.__if_pair__(data_type):
             hypothesis_masks = torch.ByteTensor(batch_size, tok_len).fill_(1)
             premise_masks = torch.ByteTensor(batch_size, premise_len).fill_(1)
@@ -368,6 +381,8 @@ class Collater:
                 tok = self.__random_select__(tok)
             token_ids[i, :select_len] = torch.LongTensor(tok[:select_len])
             type_ids[i, :select_len] = torch.LongTensor(sample['type_id'][:select_len])
+            if self.cue_embeddings:
+                cue_markers[i, :select_len] = torch.LongTensor(sample['cue_marker'][:select_len])
             masks[i, : select_len] = torch.LongTensor([1] * select_len)
             if self.__if_pair__(data_type):
                 plen = len(sample['type_id']) - sum(sample['type_id'])
@@ -381,6 +396,7 @@ class Collater:
                 'mask': 2,
                 'premise_mask': 3,
                 'hypothesis_mask': 4
+
             }
             batch_data = [token_ids, type_ids, masks, premise_masks, hypothesis_masks]
         else:
@@ -390,4 +406,8 @@ class Collater:
                 'mask': 2
             }
             batch_data = [token_ids, type_ids, masks]
+            if self.cue_embeddings:
+                batch_info['cue_marker'] = 3
+                batch_data.append(cue_markers)
+
         return batch_info, batch_data
