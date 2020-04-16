@@ -81,6 +81,37 @@ def compute_pcs(predicts, labels, label_mapper):
 
     return tp/len(predicts)
 
+def compute_scope_prf(predicts, labels, label_mapper):
+    """
+    compute correctly predicted full spans
+    :param predicts:
+    :param labels:
+    :return:
+    """
+    def trim(predict, label):
+        temp_1 = []
+        temp_2 = []
+        for j, m in enumerate(predict):
+            if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
+                temp_1.append(label_mapper[label[j]])
+                temp_2.append(label_mapper[m])
+        return temp_2, temp_1
+
+
+    y_gold = []
+    y_pred = []
+    for predict, label in zip(predicts, labels):
+        predict, label = trim(predict, label)
+        y_gold.extend(label)
+        y_pred.extend(predict)
+        
+
+    prf = precision_recall_fscore_support(y_gold, y_pred, labels=[label_mapper['I'], label_mapper['O']])
+    p = prf[0][0]
+    r = prf[1][0]
+    f = prf[2][0]
+    return 'p:{:.4f} r:{:.4f} f:{:.4f}'.format(p,r,f)
+
 def compute_clue_f(predicts, labels, label_mapper):
     """
     compute correctly predicted full spans
@@ -128,6 +159,7 @@ class Metric(Enum):
     F1MIC = 10
     PCS = 11
     CLUEF = 12
+    SCOPEPRF = 13
 
 
 
@@ -144,7 +176,8 @@ METRIC_FUNC = {
     Metric.F1MAC: compute_f1mac,
     Metric.F1MIC: compute_f1mic,
     Metric.PCS: compute_pcs,
-    Metric.CLUEF: compute_clue_f
+    Metric.CLUEF: compute_clue_f,
+    Metric.SCOPEPRF: compute_scope_prf
 
 }
 
@@ -164,6 +197,8 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
         elif mm == Metric.PCS:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.CLUEF:
+            metric = metric_func(predictions, golds, label_mapper)
+        elif mm == Metric.SCOPEPRF:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
