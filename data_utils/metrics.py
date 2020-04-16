@@ -2,11 +2,12 @@
 from enum import Enum
 
 from sklearn.metrics import matthews_corrcoef
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score
 from scipy.stats import pearsonr, spearmanr
 from seqeval.metrics import classification_report
 from data_utils.squad_eval import evaluate_func
+
 
 def compute_acc(predicts, labels):
     return 100.0 * accuracy_score(labels, predicts)
@@ -80,6 +81,33 @@ def compute_pcs(predicts, labels, label_mapper):
 
     return tp/len(predicts)
 
+def compute_clue_f(predicts, labels, label_mapper):
+    """
+    compute correctly predicted full spans
+    :param predicts:
+    :param labels:
+    :return:
+    """
+    def trim(predict, label):
+        temp_1 = []
+        temp_2 = []
+        for j, m in enumerate(predict):
+            if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
+                temp_1.append(label_mapper[label[j]])
+                temp_2.append(label_mapper[m])
+        return temp_2, temp_1
+
+    y_gold = []
+    y_pred = []
+    for predict, label in zip(predicts, labels):
+        predict, label = trim(predict, label)
+        y_gold.extend(label)
+        y_pred.extend(predict)
+    f = precision_recall_fscore_support(y_gold, y_pred, labels=[0,1])
+    return 'P:{:.4f} R: {:.4f} F:{:.4f} Support: {}'.format(f[0][1], f[1][1], f[2][1], f[3][1])
+    #return f
+
+
 
 
 
@@ -99,6 +127,7 @@ class Metric(Enum):
     F1MAC = 9
     F1MIC = 10
     PCS = 11
+    CLUEF = 12
 
 
 
@@ -114,7 +143,8 @@ METRIC_FUNC = {
     Metric.EmF1: compute_emf1,
     Metric.F1MAC: compute_f1mac,
     Metric.F1MIC: compute_f1mic,
-    Metric.PCS: compute_pcs
+    Metric.PCS: compute_pcs,
+    Metric.CLUEF: compute_clue_f
 
 }
 
@@ -133,6 +163,8 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.PCS:
             metric = metric_func(predictions, golds, label_mapper)
+        elif mm == Metric.CLUEF:
+            metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
         else:
@@ -145,13 +177,9 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
 
 
 if __name__=="__main__":
-    pred = [0,0,1,1,1,1]
-    gold = [0,0,1,1,1,1]
+    pred = [0,1,1,1,1,1]
+    gold = [0,1,1,0,1,1]
     preds = [pred,pred]
     golds = [gold, gold]
-    res  = compute_pcs(preds, golds, label_mapper={0:0, 1:1})
+    res  = compute_clue_f(preds, golds, label_mapper={0:0, 1:1})
     print(res)
-    import uuid
-
-    unique_filename = str(uuid.uuid4())
-    print(unique_filename)
