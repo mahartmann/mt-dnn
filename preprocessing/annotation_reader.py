@@ -1,5 +1,5 @@
 from preprocessing.nested_xml import dfs, dfs3, build_surface, build_surface_ddi
-from preprocessing.data_splits import write_train_dev_test_data
+from preprocessing.data_splits import write_train_dev_test_data, write_train_dev_test_cue_data
 import xml.etree.ElementTree as ET
 import itertools
 import os
@@ -29,6 +29,7 @@ def make_directory(path):
 def read_bioscope(fname, setting='augment', cue_type='negation'):
     root = ET.parse(fname).getroot()
     data = []
+    cue_data = []
     for doc in root.iter('Document'):
         for part in doc.iter('DocumentPart'):
             for sent in part.iter('sentence'):
@@ -96,9 +97,22 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                     sent_data.append([labels, toks])
                 if len(sent_data) > 0:
                     data.append(sent_data)
+                    # get clue annotated data
+                    cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
+def get_clue_annotated_data(sent_data):
+    seq = [elm for elm in sent_data[0][1] if elm != 'CUE']
+    labels = ['0'] *len(seq)
+    for i, sent in enumerate([elm[1] for elm in sent_data]):
 
-    return data
+        idx = 0
+        for tok in sent:
+            if tok != 'CUE':
+                idx += 1
+            else:
+                labels[idx] = '1_{}'.format(i)
+    return [labels, seq]
 
 
 def read_sherlock(fname, setting='augment'):
@@ -111,6 +125,7 @@ def read_sherlock(fname, setting='augment'):
             sid = splt[1]
             sents.setdefault(sid + cid, []).append(line)
     data = []
+    cue_data = []
     # first cue at index 7
     for key, lines in sents.items():
         cols = {}
@@ -181,7 +196,8 @@ def read_sherlock(fname, setting='augment'):
                 sent_data.append([labels, toks])
             if len(sent_data) > 0:
                 data.append(sent_data)
-    return data
+                cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
 
 
@@ -190,9 +206,12 @@ def read_IULA(path, setting='augment'):
     fnames = ['{}/{}'.format(path, f) for f in fs]
     anno_names = ['{}/{}.ann'.format(path, f.split('.txt')[0]) for f in fs]
     data = []
+    cue_data = []
     for fname, anno_name in zip(fnames, anno_names):
-        data.extend(read_IULA_doc(fname, anno_name, setting))
-    return data
+        data_ex, cue_data_ex = read_IULA_doc(fname, anno_name, setting)
+        data.extend(data_ex)
+        cue_data.extend(cue_data_ex)
+    return data, cue_data
 
 def read_IULA_doc(fname_txt, fname_anno, setting):
     class Token(object):
@@ -206,6 +225,7 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             self.label = label
 
     data = []
+    cue_data = []
     tid2tok = {}
     span2tok = {}
 
@@ -374,14 +394,18 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             sent_data.append([out_labels, out_toks])
         if len(sent_data) > 0:
             data.append(sent_data)
-    return data
+            cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
 def read_sfu_en(path, setting='augment'):
     data = []
+    cue_data = []
     for topic in [elm for elm in os.listdir(path) if os.path.isdir(os.path.join(path, elm))]:
         for fname in [os.path.join(path, topic, elm) for elm in os.listdir(os.path.join(path, topic))]:
-            data.extend(read_sfu_en_doc(fname, setting))
-    return data
+            data_ex, cue_data_ex = read_sfu_en_doc(fname, setting)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+    return data, cue_data
 
 def read_sfu_en_doc(fname, setting):
 
@@ -423,6 +447,7 @@ def read_sfu_en_doc(fname, setting):
 
     root = ET.parse(fname).getroot()
     data = []
+    cue_data = []
     print(fname)
     for p in root.iter('P'):
         for sent in p.iter('SENTENCE'):
@@ -460,15 +485,19 @@ def read_sfu_en_doc(fname, setting):
                     sent_data.append([outlabels, outtoks])
                 if len(sent_data) > 0:
                     data.append(sent_data)
-    return data
+                    cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
 
 def read_sfu_es(path, setting='augment'):
     data = []
+    cue_data = []
     for topic in [elm for elm in os.listdir(path) if os.path.isdir(os.path.join(path, elm))]:
         for fname in [os.path.join(path, topic, elm) for elm in os.listdir(os.path.join(path, topic))]:
-            data.extend(read_sfu_es_doc(fname, setting))
-    return data
+            data_ex, cue_data_ex = read_sfu_es_doc(fname, setting)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+    return data, cue_data
 
 
 def read_sfu_es_doc(fname, setting):
@@ -527,6 +556,7 @@ def read_sfu_es_doc(fname, setting):
 
 
     data = []
+    cue_data = []
     print('########################## {}'.format(fname))
     root = ET.parse(fname).getroot()
     for sent in list(root):
@@ -569,22 +599,26 @@ def read_sfu_es_doc(fname, setting):
             sent_data.append([outlabels, outtoks])
         if len(sent_data) > 0:
             data.append(sent_data)
-    return data
+            cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
 
 def read_ddi(path, setting='augment'):
     skipped = []
     data = []
+    cue_data = []
     for fname in ['{}/{}'.format(path, elm) for elm in os.listdir(path) if
                   elm.endswith('_cleaned.xml') and not ' ' in elm]:
         try:
-            data.extend(read_ddi_doc(fname, setting))
+            data_ex, cue_data_ex = read_ddi_doc(fname, setting)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
         except ET.ParseError:
             skipped.append(fname)
     print('Could not parse the following files:')
     for skip in skipped:
         print(skip)
-    return data
+    return data, cue_data
 
 
 def read_ddi_doc(fname, setting):
@@ -598,6 +632,7 @@ def read_ddi_doc(fname, setting):
         return tags
 
     data = []
+    cue_data = []
     print('\n' + fname)
     try:
         # if True:
@@ -648,21 +683,26 @@ def read_ddi_doc(fname, setting):
                     sent_data.append([out_labels, out_toks])
                 if len(sent_data) > 0:
                     data.append(sent_data)
+                    cue_data.append(get_clue_annotated_data(sent_data))
     except ET.ParseError:
         raise ET.ParseError
-    return data
+    return data, cue_data
 
 
 def read_ita(pname, setting='augment'):
     data = []
+    cue_data = []
     for f in os.listdir(pname):
         fname = os.path.join(pname, f)
-        data.extend(read_ita_doc(fname, setting))
-    return data
+        data_ex, cue_data_ex = read_ita_doc(fname, setting)
+        data.extend(data_ex)
+        cue_data.extend(cue_data_ex)
+    return data, cue_data
 
 
 def read_ita_doc(fname, setting):
     data = []
+    cue_data = []
     root = ET.parse(fname).getroot()
     toks = {}
     tid2sid = {}
@@ -730,22 +770,27 @@ def read_ita_doc(fname, setting):
             sent_data.append([out_labels, out_toks])
         if len(sent_data) > 0:
             data.append(sent_data)
+            cue_data.append(get_clue_annotated_data(sent_data))
 
 
-    return data
+    return data, cue_data
 
 
 def read_socc(pname, setting='augment'):
     data = []
+    cue_data = []
     for f in os.listdir(pname):
         dir_name = os.path.join(pname, f)
         for fname in [os.path.join(dir_name, f) for f in os.listdir(dir_name) if f.startswith('CURATION')]:
-            data.extend(read_socc_doc(fname, setting))
-    return data
+            data_ex, cue_data_ex = read_socc_doc(fname, setting)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+    return data, cue_data
 
 
 def read_socc_doc(fname, setting):
     data = []
+    cue_data = []
     lines = read_file(fname)
     current_anno_id = 0
     sents = {}
@@ -805,11 +850,14 @@ def read_socc_doc(fname, setting):
             sent_data.append([out_labels, out_toks])
         if len(sent_data) > 0:
             data.append(sent_data)
-    return data
+            cue_data.append(get_clue_annotated_data(sent_data))
+
+    return data, cue_data
 
 def read_dtneg(fname, setting='augment'):
     lines = read_file(fname)
     data = []
+    cue_data = []
     answers = set()
     for line in lines:
         if line.startswith('ANNOTATEDANSWER'):
@@ -850,7 +898,9 @@ def read_dtneg(fname, setting='augment'):
                     sent_data.append([out_labels, out_toks])
                 if len(sent_data) > 0:
                     data.append(sent_data)
-    return data
+                    cue_data.append(get_clue_annotated_data(sent_data))
+
+    return data, cue_data
 
 def get_clues(data):
     clues = set()
@@ -887,7 +937,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    #datasets = ['sherlockzh']
+    #datasets = ['bioabstracts']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -901,7 +951,7 @@ if __name__=="__main__":
     # load lexicon for silver clue detection
 
     # it doesn't matter which model we load here because we only do white space or rule-based tokenization anyway
-    nlp = spacy.load('en')
+    nlp = spacy.load('en_core_web_sm')
     nlp.tokenizer = Tokenizer(nlp.vocab)
     matcher = Matcher(nlp.vocab)
 
@@ -913,47 +963,64 @@ if __name__=="__main__":
 
     for ds in datasets:
         if ds == 'biofull':
-            data = read_bioscope(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_bioscope(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bioabstracts':
-            data = read_bioscope(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_bioscope(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bio':
-            data = read_bioscope(config.get('Files', 'biofull'))
-            data.extend(read_bioscope(config.get('Files', 'bioabstracts')))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
-
+            data, cue_data = read_bioscope(config.get('Files', 'biofull'))
+            data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'))
+            data.extend(data_extension)
+            cue_data.extend(cue_data_extension)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlocken':
-            data = read_sherlock(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_sherlock(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlockzh':
-            data = read_sherlock(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_sherlock(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'iula':
-            data = read_IULA(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_IULA(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfuen':
-            data = read_sfu_en(config.get('Files', ds))
+            data, cue_data = read_sfu_en(config.get('Files', ds))
 
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfues':
-            data = read_sfu_es(config.get('Files', ds))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_sfu_es(config.get('Files', ds))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ddi':
-            data_train = read_ddi(config.get('Files', 'dditrain'))
-            data_test = read_ddi(config.get('Files', 'dditest'))
+            data_train, cue_data_train = read_ddi(config.get('Files', 'dditrain'))
+            data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'))
             data = data_train + data_test
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            cue_data = cue_data_train + cue_data_test
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ita':
-            data = read_ita(config.get('Files', 'ita1'))
-            data.extend(read_ita(config.get('Files', 'ita2')))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_ita(config.get('Files', 'ita1'))
+            data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'))
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+            idxs =  write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'socc':
-            data = read_socc(config.get('Files', 'socc'))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_socc(config.get('Files', 'socc'))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'dtneg':
-            data = read_dtneg(config.get('Files', 'dtneg'))
-            write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_dtneg(config.get('Files', 'dtneg'))
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
 
 
         print(clues)

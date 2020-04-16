@@ -106,6 +106,34 @@ def generate_silver_data(nlp, matcher, data):
     return silver_data
 
 
+def generate_clue_annotated_data(data):
+    # multiple sequences in data can be made from the same original sequence
+    observed_seqs = set()
+    filtered_data = []
+    for labels, seq in data:
+        orig_seq = [seq[i] for i, _ in enumerate(seq) if seq[i] != 'CUE']
+        orig_label = [labels[i] for i, _ in enumerate(seq) if seq[i] != 'CUE']
+        assert len(orig_seq) == len(orig_label)
+
+        if ' '.join(orig_seq) not in observed_seqs:
+            observed_seqs.add(' '.join(orig_seq))
+            filtered_data.append([orig_label, orig_seq])
+
+    silver_data = []
+    for orig_labels, orig_seq in filtered_data:
+        augmented_seqs, insertion_idxs = process_doc(nlp, matcher, ' '.join(orig_seq), split_sents=False)
+
+        for augmented_seq, insertion_idx in zip(augmented_seqs[0], insertion_idxs[0]):
+            insertion_idx = set(insertion_idx)
+            augmented_label = []
+            for i, l in enumerate(orig_labels):
+                if i - 1 in insertion_idx:
+                    augmented_label.append(orig_labels[i])
+                augmented_label.append(orig_labels[i])
+            assert len(augmented_label) == len(augmented_seq)
+            silver_data.append([augmented_label, augmented_seq])
+    return silver_data
+
 
 
 
