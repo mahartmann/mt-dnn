@@ -106,7 +106,8 @@ def compute_scope_prf(predicts, labels, label_mapper):
         y_pred.extend(predict)
 
 
-    prf = precision_recall_fscore_support(y_gold, y_pred, labels=[label_mapper['I'], label_mapper['O']])
+    prf = precision_recall_fscore_support(y_gold, y_pred, labels=['I', 'O'])
+    
     p = prf[0][0]
     r = prf[1][0]
     f = prf[2][0]
@@ -214,7 +215,9 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
 if __name__=="__main__":
     pred = [0,1,1,1,1,1]
     gold = [0,1,1,0,1,1]
+    #pred = ['I' if elm == '1' else 'O' for elm in pred]
+    #gold = ['I' if elm == '1' else 'O' for elm in gold]
     preds = [pred,pred]
     golds = [gold, gold]
-    res  = compute_clue_f(preds, golds, label_mapper={0:0, 1:1})
+    res  = compute_scope_prf(preds, golds, label_mapper={'O':0, 0:'O', 'I':1, 1:'I'})
     print(res)
