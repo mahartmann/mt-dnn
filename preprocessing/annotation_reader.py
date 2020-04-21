@@ -34,12 +34,10 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
     for doc in root.iter('Document'):
         for part in doc.iter('DocumentPart'):
             for sent in part.iter('sentence'):
-                labels = []
-                toks = []
+
 
                 print('\n{}'.format(sent.attrib['id']))
-                annos = []
-                all_text = []
+
                 children, p2c, c2p = dfs([], {}, {}, sent)
                 siblings = dfs3(set(), p2c, c2p, sent,  {}, 0)
                 constituents = build_surface({}, p2c, c2p, sent, siblings, 0)
@@ -64,7 +62,7 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                     toks = []
                     labels = []
                     cue_labelseq = []
-                    is_cue_tok = False
+
                     for chunk, tag in constituents[sent]:
 
                         def get_all_tags(node, c2p):
@@ -78,27 +76,28 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                         all_tags = set(get_all_tags(tag, c2p))
                         if chunk is not None:
                             for t in chunk.split():
-                                is_cue_tok = False
+                                is_cue = 0
                                 if 'cue-{}-{}'.format(cue_type, cid) in all_tags:
-
+                                    is_cue = 1
                                     if setting == 'augment':
                                         print('{}\t{}\t{}'.format('CUE', 'I', ' '.join(get_all_tags(tag, c2p))))
                                         toks.append('CUE')
                                         labels.append('I')
                                         label = 'I'
+                                        cue_labelseq.append(is_cue)
                                     elif setting == 'replace':
                                         t = 'CUE'
                                         label = 'I'
-                                    elif setting == 'embed':
-                                        is_cue_tok = True
+
+
                                 elif 'xcope-{}'.format(cid) in all_tags:
                                     label = 'I'
                                 else:
                                     label = 'O'
                                 toks.append(t)
                                 labels.append(label)
-                                if is_cue_tok: cue_labelseq.append(1)
-                                else: cue_labelseq.append(0)
+                                cue_labelseq.append(is_cue)
+
                                 print('{}\t{}\t{}'.format(t, label, ' '.join(get_all_tags(tag, c2p))))
 
                     sent_data.append([labels, toks, cue_labelseq])
@@ -170,37 +169,31 @@ def read_sherlock(fname, setting='augment'):
             for negation in negations:
                 toks = []
                 labels = []
+                cue_labelseq = []
                 for tid, line in enumerate(lines):
                     splt = line.split('\t')
-
+                    is_cue = 0
                     if tid in tid2neg and negation in tid2neg[tid]:
                         neg = 'I'
                     else:
                         neg = 'O'
 
                     if tid in tid2cues and negation in tid2cues[tid]:
-                        cue_long = 'CUE{}'.format(' '.join(tid2cues[tid]))
-                        neg = 'C'
-                    else:
-                        cue_long = ''
-
-                    if setting == 'augment':
-                        if neg == 'C':
-                            neg = 'O'
-                            print('CUE\t{}\t{}'.format(neg, cue_long))
+                        cue_print = 'CUE{}'.format(' '.join(tid2cues[tid]))
+                        is_cue = 1
+                        if setting == 'augment':
+                            print('CUE\t{}\t{}'.format(neg, cue_print))
                             print('{}\t{}'.format(splt[3], neg))
                             toks.append('CUE')
                             labels.append(neg)
-                            toks.append(splt[3])
-                            labels.append(neg)
-                        else:
-                            print('{}\t{}'.format(splt[3], neg))
-                            toks.append(splt[3])
-                            labels.append(neg)
-                    else:
-                        print('{}\t{}\t{}'.format(splt[3], neg, cue_long))
+                            cue_labelseq.append(is_cue)
+                    toks.append(splt[3])
+                    labels.append(neg)
+                    cue_labelseq.append(is_cue)
 
-                sent_data.append([labels, toks])
+
+
+                sent_data.append([labels, toks, cue_labelseq])
             if len(sent_data) > 0:
                 data.append(sent_data)
                 cue_data.append(get_clue_annotated_data(sent_data))
@@ -351,8 +344,7 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             sent.append((surf, span))
 
     for sent in sents:
-        out_toks = []
-        out_labels = []
+
         tok2labels = []
 
         for surf, span in sent:
@@ -376,9 +368,11 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
         for sent_label in sent_labels:
             print('\n')
             print(sent_label)
-
+            out_toks = []
+            out_labels = []
+            cue_labelseq =[]
             for tok, labels in tok2labels:
-
+                is_cue = 0
                 def tok2sent_labels(labels):
                     return set([label.split(':')[-1] for label in labels if label.split(':')[-1].startswith('R')])
 
@@ -387,18 +381,19 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
                     out_label = 'I'
                     print('{}\t{}'.format(tok, labels))
                     if len([elm for elm in labels if 'NegMarker' in elm]) > 0:
+                        is_cue = 1
                         if setting == 'augment':
                             out_toks.append('CUE')
                             out_labels.append(out_label)
-
-                    out_toks.append(tok)
-                    out_labels.append(out_label)
+                            cue_labelseq.append(is_cue)
                 else:
+                    out_label = 'O'
                     print('{}\tUnlabeled'.format(tok))
-                    out_toks.append(tok)
-                    out_labels.append('O')
+                out_toks.append(tok)
+                out_labels.append(out_label)
+                cue_labelseq.append(is_cue)
 
-            sent_data.append([out_labels, out_toks])
+            sent_data.append([out_labels, out_toks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
@@ -469,27 +464,27 @@ def read_sfu_en_doc(fname, setting):
                 for cue in cues:
                     outtoks = []
                     outlabels = []
+                    cue_labelseq = []
                     for t, l in zip(toks, labels):
                         lsurf = 'O'
+                        is_cue = 0
                         if 'xcope-{}'.format(cue.split('-')[-1]) in l:
                             lsurf = 'I'
                             print('{}\t{}'.format(t, lsurf))
-                            outtoks.append(t)
-                            outlabels.append(lsurf)
                             # print('{}\t{}'.format(t, 'xcope-{}'.format(cue.split('-')[-1])))
-                        elif cue in l:
+                        if cue in l:
+                            is_cue = 1
                             if setting == 'augment':
                                 print('{}\t{}'.format('CUE', lsurf))
                                 outtoks.append('CUE')
                                 outlabels.append(lsurf)
-                            print('{}\t{}'.format(t, lsurf))
-                            outtoks.append(t)
-                            outlabels.append(lsurf)
-                        else:
-                            print('{}\t{}'.format(t, lsurf))
-                            outtoks.append(t)
-                            outlabels.append(lsurf)
-                    sent_data.append([outlabels, outtoks])
+                                cue_labelseq.append(is_cue)
+
+                        print('{}\t{}'.format(t, lsurf))
+                        outtoks.append(t)
+                        outlabels.append(lsurf)
+                        cue_labelseq.append(is_cue)
+                    sent_data.append([outlabels, outtoks, cue_labelseq])
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     cue_data.append(get_clue_annotated_data(sent_data))
@@ -567,8 +562,7 @@ def read_sfu_es_doc(fname, setting):
     print('########################## {}'.format(fname))
     root = ET.parse(fname).getroot()
     for sent in list(root):
-        outtoks = []
-        outlabels = []
+
         print('\n')
         toks, labels = parse_scope(sent, [], [], {}, 0)
         # get all scopes
@@ -581,29 +575,26 @@ def read_sfu_es_doc(fname, setting):
         for scope in scopes:
             outtoks = []
             outlabels = []
+            cue_labelseq = []
             for t, l in zip(toks, labels):
                 l = set(l)
+                is_cue = 0
                 if scope in l:
                     lsurf = 'I'
                     if 'negexp-{}'.format(scope.split('-')[-1]) in l:
+                        is_cue = 1
                         if setting == 'augment':
                             print('CUE\t{}'.format(lsurf))
                             outtoks.append('CUE')
                             outlabels.append(lsurf)
-                        print('{}\t{}'.format(t, lsurf))
-                        outtoks.append(t)
-                        outlabels.append(lsurf)
-                    else:
-                        print('{}\t{}'.format(t, lsurf))
-                        outtoks.append(t)
-                        outlabels.append(lsurf)
-
+                            cue_labelseq.append(is_cue)
                 else:
                     lsurf = 'O'
-                    print('{}\t{}'.format(t, lsurf))
-                    outtoks.append(t)
-                    outlabels.append(lsurf)
-            sent_data.append([outlabels, outtoks])
+                print('{}\t{}'.format(t, lsurf))
+                outtoks.append(t)
+                outlabels.append(lsurf)
+                cue_labelseq.append(is_cue)
+            sent_data.append([outlabels, outtoks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
@@ -663,8 +654,9 @@ def read_ddi_doc(fname, setting):
                     print('\n{}'.format(sent_tag))
                     out_toks = []
                     out_labels = []
-
+                    cue_labelseq = []
                     for k, v in constituents[negtags]:
+                        is_cue = 0
                         if k != None:
                             k_labels = set(
                                     ['{}_{}'.format(elm.attrib['id'], elm.tag) for elm in get_all_parents(v, c2p)])
@@ -677,17 +669,20 @@ def read_ddi_doc(fname, setting):
 
                             # check if cue
                             if '{}_cue'.format(sent_tag) in k_labels:
+                                is_cue = 1
                                 if setting == 'augment':
                                     print('CUE\t{}'.format(out_label))
                                     out_toks.append('CUE')
                                     out_labels.append(out_label)
+                                    cue_labelseq.append(is_cue)
 
                             for tok in k.split():
                                 print('{}\t{}'.format(tok, out_label))
                                 out_toks.append(tok)
                                 out_labels.append(out_label)
+                                cue_labelseq.append(is_cue)
 
-                    sent_data.append([out_labels, out_toks])
+                    sent_data.append([out_labels, out_toks, cue_labelseq])
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     cue_data.append(get_clue_annotated_data(sent_data))
@@ -751,30 +746,33 @@ def read_ita_doc(fname, setting):
             out_labels = []
             out_toks = []
             all_labelss = []
-
+            cue_labelseq = []
             for tid in sent:
 
                 tok = toks[tid]
                 out_label = 'O'
+                is_cue = 0
                 if tid in tid2anno:
                     labels = tid2anno[tid]
                     print(labels)
                     if 'SCOPE_{}'.format(scope) in labels:
                         out_label = 'I'
                     if 'CUE_scope{}'.format(scope) in labels:
-
+                        is_cue = 1
                         if setting == 'augment':
 
                             out_toks.append('CUE')
                             out_labels.append(out_label)
                             all_labelss.append(labels)
+                            cue_labelseq.append(is_cue)
 
                 else:
                     labels = set()
                 all_labelss.append(labels)
                 out_toks.append(tok)
                 out_labels.append(out_label)
-            sent_data.append([out_labels, out_toks])
+                cue_labelseq.append(is_cue)
+            sent_data.append([out_labels, out_toks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
@@ -833,12 +831,13 @@ def read_socc_doc(fname, setting):
         for sent_cue in sent_cues:
             out_toks = []
             out_labels = []
+            cue_labelseq = []
             print('\n')
             print(fname)
             print(sent_cue)
             aid = int(sent_cue.split('_')[-1])
             for tok, annos in sent:
-
+                is_cue = 0
                 if 'SCOPE_{}'.format(aid + 1) in annos:
                     display_label = 'SCOPE_{}'.format(aid + 1)
                     out_label = 'I'
@@ -846,15 +845,18 @@ def read_socc_doc(fname, setting):
                     display_label = 'O'
                     out_label = 'O'
                 if sent_cue in annos:
+                    is_cue = 1
                     if setting == 'augment':
                         out_tok = 'CUE'
                         out_toks.append(out_tok)
+                        cue_labelseq.append(is_cue)
                         print(out_tok, display_label)
                 out_tok = tok
                 out_toks.append(out_tok)
                 out_labels.append(out_label)
+                cue_labelseq.append(is_cue)
                 print(out_tok, display_label)
-            sent_data.append([out_labels, out_toks])
+            sent_data.append([out_labels, out_toks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
@@ -884,6 +886,7 @@ def read_dtneg(fname, setting='augment'):
                 print('\n')
                 out_labels = []
                 out_toks = []
+                cue_labelseq = []
                 for tok in text.split():
                     if tok == '[':
                         label = 'I'
@@ -897,12 +900,15 @@ def read_dtneg(fname, setting='augment'):
                         if is_clue and setting =='augment':
                             out_toks.append('CUE')
                             out_labels.append(label)
+                            cue_labelseq.append(is_clue)
                         out_toks.append(tok.strip('{}'))
                         out_labels.append(label)
+                        cue_labelseq.append(is_clue)
                 if len(out_labels) > 3:
                     for t, l in zip(out_toks, out_labels):
                         print(t,l)
-                    sent_data.append([out_labels, out_toks])
+                    cue_labelseq = [1 if elm == True else 0 for elm in cue_labelseq]
+                    sent_data.append([out_labels, out_toks, cue_labelseq])
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     cue_data.append(get_clue_annotated_data(sent_data))
@@ -944,7 +950,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['biofull']
+    #datasets = ['dtneg']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -971,62 +977,62 @@ if __name__=="__main__":
     for ds in datasets:
         if ds == 'biofull':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bioabstracts':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bio':
             data, cue_data = read_bioscope(config.get('Files', 'biofull'), setting=setting)
             data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'))
             data.extend(data_extension)
             cue_data.extend(cue_data_extension)
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlocken':
-            data, cue_data = read_sherlock(config.get('Files', ds))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
+
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlockzh':
-            data, cue_data = read_sherlock(config.get('Files', ds))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'iula':
-            data, cue_data = read_IULA(config.get('Files', ds))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_IULA(config.get('Files', ds), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfuen':
-            data, cue_data = read_sfu_en(config.get('Files', ds))
+            data, cue_data = read_sfu_en(config.get('Files', ds), setting=setting)
 
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfues':
-            data, cue_data = read_sfu_es(config.get('Files', ds))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
-
+            data, cue_data = read_sfu_es(config.get('Files', ds), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ddi':
-            data_train, cue_data_train = read_ddi(config.get('Files', 'dditrain'))
-            data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'))
+            data_train, cue_data_train = read_ddi(config.get('Files', 'dditrain'), setting=setting)
+            data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'), setting=setting)
             data = data_train + data_test
             cue_data = cue_data_train + cue_data_test
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ita':
-            data, cue_data = read_ita(config.get('Files', 'ita1'))
-            data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'))
+            data, cue_data = read_ita(config.get('Files', 'ita1'), setting=setting)
+            data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'), setting=setting)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
-            idxs =  write_train_dev_test_data(os.path.join(outpath, ds), data)
+            idxs =  write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'socc':
-            data, cue_data = read_socc(config.get('Files', 'socc'))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_socc(config.get('Files', 'socc'), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'dtneg':
-            data, cue_data = read_dtneg(config.get('Files', 'dtneg'))
-            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data)
+            data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
 
 

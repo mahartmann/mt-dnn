@@ -46,3 +46,5 @@ def get_gpu_memory_map():
 def get_pip_env():
     result = subprocess.call(["pip", "freeze"])
     return result
+
+

@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 import yaml
 from data_utils.vocab import Vocabulary
-from data_utils.task_def import TaskType, DataFormat, EncoderModelType
+from data_utils.task_def import TaskType, DataFormat, EncoderModelType, AdditionalFeatures
 from data_utils.metrics import Metric
 from mt_dnn.loss import LossCriterion
 
 class TaskDef(dict):
-    def __init__(self, label_vocab, n_class, data_type, task_type, metric_meta, split_names, enable_san, dropout_p, loss, kd_loss):
+    def __init__(self, label_vocab, n_class, data_type, task_type, metric_meta, split_names, enable_san, dropout_p, loss, kd_loss, additional_features):
         """
             :param label_vocab: map string label to numbers.
                 only valid for Classification task or ranking task.
@@ -24,6 +24,7 @@ class TaskDef(dict):
         self.dropout_p = dropout_p
         self.loss = loss
         self.kd_loss = kd_loss
+        self.additional_features = additional_features
 
     @classmethod
     def from_dict(cls, dict_rep):
@@ -44,8 +45,10 @@ class TaskDefs:
         dropout_p_map = {}
         loss_map = {}
         kd_loss_map = {}
+        additional_features_map = {}
 
         for task, task_def in self._task_def_dic.items():
+            print(task_def)
             assert "_" not in task, "task name should not contain '_', current task name: %s" % task
             n_class_map[task] = task_def["n_class"]
             data_format = DataFormat[task_def["data_format"]]
@@ -54,6 +57,10 @@ class TaskDefs:
             metric_meta_map[task] = tuple(Metric[metric_name] for metric_name in task_def["metric_meta"])
             split_names_map[task] = task_def.get("split_names", ["train", "dev", "test"])
             enable_san_map[task] = task_def["enable_san"]
+
+            if 'additional_features' in task_def:
+                additional_features_map[task] = AdditionalFeatures[task_def['additional_features']]
+            else: additional_features_map[task] = None
             if "labels" in task_def:
                 labels = task_def["labels"]
                 label_mapper = Vocabulary(True)
@@ -88,6 +95,7 @@ class TaskDefs:
         self._dropout_p_map = dropout_p_map
         self._loss_map = loss_map
         self._kd_loss_map = kd_loss_map
+        self._additional_features_map = additional_features_map
 
         self._task_def_dic = {}
 
@@ -107,6 +115,7 @@ class TaskDefs:
                 self._enable_san_map[task_name],
                 self._dropout_p_map.get(task_name, None),
                 self._loss_map[task_name],
-                self._kd_loss_map[task_name]
+                self._kd_loss_map[task_name],
+                self._additional_features_map[task_name]
             )
         return self._task_def_dic[task_name]

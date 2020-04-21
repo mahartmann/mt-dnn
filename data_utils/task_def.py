@@ -23,3 +23,19 @@ class EncoderModelType(IntEnum):
     ROBERTA = 2
     XLNET = 3
     SAN = 4
+
+class AdditionalFeatures(IntEnum):
+    cue_marker = 1
+    scope_markers = 2
+
+
+def get_enum_name_from_repr_str(s):
+    """
+    when read from config, enums are converted to repr(Enum)
+    :param s:
+    :return:
+    """
+    ename = s.split('.')[-1].split(':')[0]
+    if ename == 'None':
+        ename = None
+    return ename

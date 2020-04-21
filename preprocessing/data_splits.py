@@ -22,20 +22,23 @@ def generate_splits(num_data):
     test_idxs = idx[int(np.ceil((0.7+0.15)*len(idx))):]
     return train_idxs, dev_idxs, test_idxs
 
-def write_train_dev_test_data(fstem, data):
+def write_train_dev_test_data(fstem, data, setting):
     split_idxs = generate_splits(len(data))
-    number_elms = 2
     for i, splt in enumerate(['train', 'dev', 'test']):
         idxs = split_idxs[i]
         out_data = []
         for idx in idxs:
             for elm in data[idx]:
                 out_data.append(elm)
+        number_elms = 2
         if len(elm[2]) > 0:
-            fstem += 'embed'
             number_elms = 3
-        write_split('{}_{}.tsv'.format(fstem, splt), out_data, number_elms)
-        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
+        fstem_out = fstem
+        if setting == 'embed':
+            fstem_out = fstem+'embed'
+
+        write_split('{}_{}.tsv'.format(fstem_out, splt), out_data, number_elms)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem_out, splt) ))
     return  split_idxs
 
 def write_train_dev_test_cue_data(fstem, data, split_idxs):
