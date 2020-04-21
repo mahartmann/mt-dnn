@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-from data_utils.task_def import TaskType, DataFormat
+from data_utils.task_def import TaskType, DataFormat, get_enum_name_from_repr_str
 import tasks
 
 def load_data(file_path, task_def):
@@ -29,7 +29,10 @@ def load_data(file_path, task_def):
             row = {"uid": fields[0], "ruid": fields[1].split(","), "label": fields[2], "premise": fields[3],
                    "hypothesis": fields[4:]}
         elif data_format == DataFormat.Seqence:
-            row = {"uid": fields[0], "label": eval(fields[1]),  "premise": eval(fields[2])}
+            row = {"uid": fields[0], "label": eval(fields[1]), "premise": eval(fields[2])}
+            if get_enum_name_from_repr_str(task_def['additional_features']):
+                additional_features = get_enum_name_from_repr_str(task_def['additional_features'])
+                row[additional_features] = eval(fields[3])
 
         elif data_format == DataFormat.MRC:
             row = {
