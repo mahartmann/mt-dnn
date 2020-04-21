@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from data_utils import load_data
-from data_utils.task_def import TaskType, DataFormat
+from data_utils.task_def import TaskType, DataFormat, get_enum_name_from_repr_str
 from data_utils.log_wrapper import create_logger
 from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
@@ -67,7 +67,7 @@ def feature_extractor(tokenizer, text_a, text_b=None, max_length=512, model_type
     return input_ids,attention_mask, token_type_ids # input_ids, input_mask, segment_id
 
 def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
-               max_seq_len=MAX_SEQ_LEN, encoderModelType=EncoderModelType.BERT, lab_dict=None):
+               max_seq_len=MAX_SEQ_LEN, encoderModelType=EncoderModelType.BERT, lab_dict=None, additional_features=None):
     def build_data_premise_only(
             data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT):
         """Build data of single sentence tasks
@@ -159,6 +159,40 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                 features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids}
                 writer.write('{}\n'.format(json.dumps(features)))
 
+    def build_data_sequence_with_additional_features(data, dump_path, additional_features_id, max_seq_len=MAX_SEQ_LEN,
+                                                     tokenizer=None,
+                                                     encoderModelType=EncoderModelType.BERT, label_mapper=None):
+        with open(dump_path, 'w', encoding='utf-8') as writer:
+            for idx, sample in enumerate(data):
+                ids = sample['uid']
+                premise = sample['premise']
+                tokens = []
+                labels = []
+                additional_features = []
+                for i, word in enumerate(premise):
+                    subwords = tokenizer.tokenize(word)
+                    tokens.extend(subwords)
+                    for j in range(len(subwords)):
+                        if j == 0:
+                            labels.append(sample['label'][i])
+                            additional_features.append(sample[additional_features_id][i])
+                        else:
+                            labels.append(label_mapper['X'])
+                            additional_features.append(sample[additional_features_id][i])
+                if len(premise) > max_seq_len - 2:
+                    tokens = tokens[:max_seq_len - 2]
+                    labels = labels[:max_seq_len - 2]
+                    additional_features = additional_features[:max_seq_len - 2]
+
+                label = [label_mapper['CLS']] + labels + [label_mapper['SEP']]
+                additional_features = [0] + additional_features + [0]
+                input_ids = tokenizer.convert_tokens_to_ids([tokenizer.cls_token] + tokens + [tokenizer.sep_token])
+                assert len(label) == len(input_ids) == len(additional_features)
+                type_ids = [0] * len(input_ids)
+                features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids,
+                            additional_features_id: additional_features}
+                writer.write('{}\n'.format(json.dumps(features)))
+
     def build_data_mrc(data, dump_path, max_seq_len=MRC_MAX_SEQ_LEN, tokenizer=None, label_mapper=None, is_training=True):
         with open(dump_path, 'w', encoding='utf-8') as writer:
             unique_id = 1000000000 # TODO: this is from BERT, needed to remove it...
@@ -222,7 +256,11 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
         build_data_premise_and_multi_hypo(
             data, dump_path, max_seq_len, tokenizer, encoderModelType)
     elif data_format == DataFormat.Seqence:
-        build_data_sequence(data, dump_path, max_seq_len, tokenizer, encoderModelType, lab_dict)
+        if additional_features:
+            build_data_sequence_with_additional_features(data, dump_path, additional_features, max_seq_len, tokenizer,
+                                                         encoderModelType, lab_dict)
+        else:
+            build_data_sequence(data, dump_path, max_seq_len, tokenizer, encoderModelType, lab_dict)
     elif data_format == DataFormat.MRC:
         build_data_mrc(data, dump_path, max_seq_len, tokenizer, encoderModelType)
     else:
@@ -232,15 +270,14 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Preprocessing GLUE/SNLI/SciTail dataset.')
-    parser.add_argument('--model', type=str, default='bert-base-uncased',
+    parser.add_argument('--model', type=str, default='bert-base-cased',
                         help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
     parser.add_argument('--literal_model_type', type=str, default='bert',
                         help='the type of base model, e.g. bert or xlnet')
-    parser.add_argument('--model', type=str, default='bert-base-uncased',
-                        help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
+
     parser.add_argument('--do_lower_case', action='store_true')
-    parser.add_argument('--root_dir', type=str, default='data/canonical_data')
-    parser.add_argument('--task_def', type=str, default="experiments/glue/glue_task_def.yml")
+    parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negScope/data/formatted')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/task_def1.yml")
 
     args = parser.parse_args()
     return args
@@ -297,7 +334,8 @@ def main(args):
                 tokenizer,
                 task_def.data_type,
                 encoderModelType=encoder_model,
-                lab_dict=task_def.label_vocab)
+                lab_dict=task_def.label_vocab,
+                additional_features=get_enum_name_from_repr_str(task_def['additional_features']))
 
 
 if __name__ == '__main__':
