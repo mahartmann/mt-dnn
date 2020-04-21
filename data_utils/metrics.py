@@ -107,7 +107,7 @@ def compute_scope_prf(predicts, labels, label_mapper):
 
 
     prf = precision_recall_fscore_support(y_gold, y_pred, labels=['I', 'O'])
-    
+
     p = prf[0][0]
     r = prf[1][0]
     f = prf[2][0]

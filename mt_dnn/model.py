@@ -206,6 +206,7 @@ class MTDNNModel(object):
     def encode(self, batch_meta, batch_data):
         self.network.eval()
         inputs = batch_data[:3]
+        print(inputs)
         sequence_output = self.network.encode(*inputs)[0]
         return sequence_output
 

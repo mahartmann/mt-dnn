@@ -10,7 +10,7 @@ from transformers import BertModel
 from module.dropout_wrapper import DropoutWrapper
 from module.san import SANClassifier, MaskLmHeader
 from module.san_model import SanModel
-from data_utils.task_def import EncoderModelType, TaskType
+from data_utils.task_def import EncoderModelType, TaskType, AdditionalFeatures
 import tasks
 from experiments.exp_def import TaskDef
 from extensions.hooks import gradient_reversal_hook, MyHook
@@ -33,7 +33,7 @@ def generate_decoder_opt(enable_san, max_opt):
         opt_v = max_opt
     return opt_v
 class SANBertNetwork(nn.Module):
-    def __init__(self, opt, bert_config=None, initial_from_local=False, cue_embeddings=True):
+    def __init__(self, opt,  bert_config=None, initial_from_local=False):
         super(SANBertNetwork, self).__init__()
         self.dropout_list = nn.ModuleList()
 
@@ -72,6 +72,10 @@ class SANBertNetwork(nn.Module):
         # create output header
         self.scoring_list = nn.ModuleList()
         self.dropout_list = nn.ModuleList()
+
+        # create lists for additional inputs embeddings
+        self.additional_input_features_list = nn.ModuleList()
+
         for task_id in range(len(task_def_list)):
             task_def: TaskDef = task_def_list[task_id]
             lab = task_def.n_class
@@ -82,6 +86,15 @@ class SANBertNetwork(nn.Module):
             self.dropout_list.append(dropout)
             task_obj = tasks.get_task_obj(task_def)
             print('{}: {}'.format(task_id, task_obj))
+
+            ################################################################
+            ######## Add additional layers used during encoding ############
+            ################################################################
+            if task_def.additional_features == AdditionalFeatures.cue_marker:
+                embeds = nn.Embedding(2, hidden_size)
+                self.additional_input_features_list.append(embeds)
+            else: self.additional_input_features_list.append(None)
+
             if task_obj is not None:
                 out_proj = task_obj.train_build_task_layer(decoder_opt, hidden_size, lab, opt, prefix='answer', dropout=dropout)
             elif task_type == TaskType.Span:
@@ -108,9 +121,7 @@ class SANBertNetwork(nn.Module):
             self.scoring_forward_hooks[task_id] = (MyHook(out_proj))
             self.scoring_backward_hooks[task_id] = (MyHook(out_proj, backward=True))
 
-            if cue_embeddings:
-                # = nn.Embedding(hidden_size, lab)
-                self.cue_embeddings = nn.Embedding(2, hidden_size)
+
 
         self.opt = opt
         self._my_init()
@@ -139,18 +150,16 @@ class SANBertNetwork(nn.Module):
 
         self.apply(init_weights)
 
-    def encode(self, input_ids, token_type_ids, attention_mask, cue_type_ids):
-        if cue_type_ids is 1:
+    def encode(self, task_id, input_ids, token_type_ids, attention_mask, additional_features):
+        if additional_features is None:
             outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask)
         else:
             # get embeddings
             bert_embeddings = self.bert.embeddings(input_ids=input_ids, token_type_ids=token_type_ids)
             # add cue type embeddings
-            cue_embeds = self.cue_embeddings(cue_type_ids)
-            print(cue_embeds)
+            cue_embeds = self.additional_input_features_list[task_id](additional_features)
             input_representations = bert_embeddings + cue_embeds
-            print(input_representations)
             outputs = self.bert(input_ids=None, token_type_ids=token_type_ids, inputs_embeds=input_representations,
                                                           attention_mask=attention_mask)
             # input into bert
@@ -158,8 +167,8 @@ class SANBertNetwork(nn.Module):
         pooled_output = outputs[1]
         return sequence_output, pooled_output
 
-    def forward(self, input_ids, token_type_ids, attention_mask, cue_type_ids, premise_mask=None, hyp_mask=None, task_id=0):
-        sequence_output, pooled_output = self.encode(input_ids, token_type_ids, attention_mask, cue_type_ids=cue_type_ids)
+    def forward(self, input_ids, token_type_ids, attention_mask, additional_features=None, premise_mask=None, hyp_mask=None, task_id=0):
+        sequence_output, pooled_output = self.encode(task_id, input_ids, token_type_ids, attention_mask, additional_features=additional_features)
 
         decoder_opt = self.decoder_opt[task_id]
         task_type = self.task_types[task_id]

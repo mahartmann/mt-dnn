@@ -7,7 +7,7 @@ import random
 import numpy as np
 from shutil import copyfile
 from data_utils.task_def import TaskType, DataFormat
-from data_utils.task_def import EncoderModelType
+from data_utils.task_def import EncoderModelType, AdditionalFeatures, get_enum_name_from_repr_str
 import tasks
 from torch.utils.data import Dataset, DataLoader, BatchSampler
 from experiments.exp_def import TaskDef
@@ -164,6 +164,7 @@ class SingleTaskDataset(Dataset):
                         continue
                 data.append(sample)
             print('Loaded {} samples out of {}'.format(len(data), cnt))
+
         return data, None
 
     def __len__(self):
@@ -204,7 +205,7 @@ class Collater:
                  dropout_w=0.005,
                  soft_label=False,
                  encoder_type=EncoderModelType.BERT,
-                 cue_embeddings=True):
+                 cue_embeddings=False):
         self.is_train = is_train
         self.dropout_w = dropout_w
         self.soft_label_on = soft_label
@@ -235,8 +236,18 @@ class Collater:
 
         return batch_info, batch_data
 
+    def get_additional_feature_key(self, sample):
+        additional_features = []
+        for key in sample.keys():
+            if key in AdditionalFeatures:
+                print('############ {}'.format(key))
+                return key
+        return None
+
     def rebatch(self, batch):
         newbatch = []
+
+        #get additional features
         for sample in batch:
             size = len(sample['token_id'])
             self.pairwise_size = size
@@ -246,13 +257,12 @@ class Collater:
                 type_id = sample['type_id'][idx]
                 uid = sample['ruid'][idx]
                 olab = sample['olabel'][idx]
-                if self.cue_embeddings:
-                    cue_marker = sample['cue_marker'][idx]
-                    newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'], 'true_label': olab, 'cue_marker':cue_marker})
-                else:
-                    newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label': sample['label'],
-                                     'true_label': olab})
-
+                additional_features = None
+                if self.get_additional_feature_key(sample):
+                    key = self.get_additional_feature_key(sample)
+                    additional_features = sample[key][idx]
+                    print(additional_features)
+                newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'], 'true_label': olab, 'additional_features': additional_features})
         return newbatch
 
     def __if_pair__(self, data_type):
@@ -260,6 +270,7 @@ class Collater:
 
 
     def collate_fn(self, batch):
+
         task_id = batch[0]["task"]["task_id"]
         task_def = batch[0]["task"]["task_def"]
         new_batch = []
@@ -275,7 +286,10 @@ class Collater:
             batch = self.rebatch(batch)
 
         # prepare model input
-        batch_info, batch_data = self._prepare_model_input(batch, data_type)
+        # the additional features were converted to a repr(Enum)
+
+        additional_features_name = get_enum_name_from_repr_str(task_def['additional_features'])
+        batch_info, batch_data = self._prepare_model_input(batch, data_type, additional_features_name)
         batch_info['task_id'] = task_id  # used for select correct decoding head
         batch_info['input_len'] = len(batch_data)  # used to select model inputs
         # select different loss function and other difference in training and testing
@@ -354,7 +368,7 @@ class Collater:
     def _get_batch_size(self, batch):
         return len(batch)
 
-    def _prepare_model_input(self, batch, data_type):
+    def _prepare_model_input(self, batch, data_type, additional_features_name):
 
         batch_size = self._get_batch_size(batch)
         tok_len = self._get_max_len(batch, key='token_id')
@@ -369,7 +383,7 @@ class Collater:
             token_ids = torch.LongTensor(batch_size, tok_len).fill_(0)
             type_ids = torch.LongTensor(batch_size, tok_len).fill_(0)
             masks = torch.LongTensor(batch_size, tok_len).fill_(0)
-            cue_markers = torch.LongTensor(batch_size, tok_len).fill_(0)
+            additional_features = torch.LongTensor(batch_size, tok_len).fill_(0)
 
         if self.__if_pair__(data_type):
             hypothesis_masks = torch.ByteTensor(batch_size, tok_len).fill_(1)
@@ -381,8 +395,7 @@ class Collater:
                 tok = self.__random_select__(tok)
             token_ids[i, :select_len] = torch.LongTensor(tok[:select_len])
             type_ids[i, :select_len] = torch.LongTensor(sample['type_id'][:select_len])
-            if self.cue_embeddings:
-                cue_markers[i, :select_len] = torch.LongTensor(sample['cue_marker'][:select_len])
+
             masks[i, : select_len] = torch.LongTensor([1] * select_len)
             if self.__if_pair__(data_type):
                 plen = len(sample['type_id']) - sum(sample['type_id'])
@@ -406,8 +419,11 @@ class Collater:
                 'mask': 2
             }
             batch_data = [token_ids, type_ids, masks]
-            if self.cue_embeddings:
-                batch_info['cue_marker'] = 3
-                batch_data.append(cue_markers)
+
+            if additional_features_name:
+                additional_features[i, :select_len] = torch.LongTensor(sample[additional_features_name][:select_len])
+            else:  additional_features = None
+            batch_info['additional_features'] = 3
+            batch_data.append(additional_features)
 
         return batch_info, batch_data
