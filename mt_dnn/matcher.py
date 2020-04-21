@@ -129,8 +129,8 @@ class SANBertNetwork(nn.Module):
         # if not loading from local, loading model weights from pre-trained model, after initialization
         if not initial_from_local:
             config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
-            #self.bert = model_class.from_pretrained(opt['init_checkpoint'],config=self.preloaded_config)
-            self.bert = BertModel(self.preloaded_config)
+            self.bert = model_class.from_pretrained(opt['init_checkpoint'],config=self.preloaded_config)
+            #self.bert = BertModel(self.preloaded_config)
 
         #register hooks
         for module in list(self.bert._modules.items()):
