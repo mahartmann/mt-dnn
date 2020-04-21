@@ -20,6 +20,7 @@ from data_utils.task_def import EncoderModelType
 from data_utils.utils import set_environment
 from mt_dnn.batcher import SingleTaskDataset, MultiTaskDataset, Collater, MultiTaskBatchSampler
 from mt_dnn.model import MTDNNModel
+import test_config
 
 
 def model_config(parser):
@@ -65,13 +66,14 @@ def data_config(parser):
     parser.add_argument('--log_file', default='mt-dnn-train.log', help='path for log file.')
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
-    parser.add_argument("--init_checkpoint", default='mt_dnn_models/bert_model_base_uncased.pt', type=str)
-    parser.add_argument('--data_dir', default='data/canonical_data/bert_uncased_lower')
+    parser.add_argument("--init_checkpoint", default='', type=str)
+    parser.add_argument('--data_dir',
+                        default='/home/mareike/PycharmProjects/negScope/data/formatted/bert-base-uncased_lower')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/glue/glue_task_def.yml")
-    parser.add_argument('--train_datasets', default='mnli')
-    parser.add_argument('--test_datasets', default='mnli_mismatched,mnli_matched')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/task_def.yml")
+    parser.add_argument('--train_datasets', default='sherlockenzerobio')
+    parser.add_argument('--test_datasets', default='sherlockenzerobio')
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
                         help=">0 to turn on knowledge distillation, requires 'softlabel' column in input data")
@@ -257,9 +259,15 @@ def main():
         if opt['encoder_type'] not in EncoderModelType._value2member_map_:
             raise ValueError("encoder_type is out of pre-defined types")
         literal_encoder_type = EncoderModelType(opt['encoder_type']).name.lower()
+
         config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
         config = config_class.from_pretrained(init_model).to_dict()
 
+    """
+    state_dict = None
+    config = test_config.test_config
+    print(config)
+    """
     config['attention_probs_dropout_prob'] = args.bert_dropout_p
     config['hidden_dropout_prob'] = args.bert_dropout_p
     config['multi_gpu_on'] = opt["multi_gpu_on"]
