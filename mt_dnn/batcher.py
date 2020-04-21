@@ -422,7 +422,7 @@ class Collater:
 
             if additional_features_name:
                 additional_features[i, :select_len] = torch.LongTensor(sample[additional_features_name][:select_len])
-            else:  additional_features = None
+            else:  additional_features = []
             batch_info['additional_features'] = 3
             batch_data.append(additional_features)
 
