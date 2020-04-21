@@ -48,7 +48,7 @@ class TaskDefs:
         additional_features_map = {}
 
         for task, task_def in self._task_def_dic.items():
-            print(task_def)
+           
             assert "_" not in task, "task name should not contain '_', current task name: %s" % task
             n_class_map[task] = task_def["n_class"]
             data_format = DataFormat[task_def["data_format"]]
