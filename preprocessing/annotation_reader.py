@@ -1,8 +1,9 @@
 from preprocessing.nested_xml import dfs, dfs3, build_surface, build_surface_ddi
-from preprocessing.data_splits import write_train_dev_test_data, write_train_dev_test_cue_data
+from preprocessing.data_splits import write_train_dev_test_data, write_train_dev_test_cue_data, write_train_dev_test_data_drugs
 import xml.etree.ElementTree as ET
 import itertools
 import os
+import csv
 from preprocessing import clue_detection
 
 import spacy
@@ -930,6 +931,15 @@ def get_clues(data):
                     cue = []
     return clues
 
+def read_drugs(fname, setting=None):
+    with open(fname, newline='') as csvfile:
+        reader = csv.DictReader(csvfile, delimiter='\t')
+        data = []
+        for row in reader:
+
+            data.append({'rid': row[''], 'rating': row['rating'], 'review': row['review']})
+    return data
+
 
 
 def load_data_from_tsv(fname):
@@ -950,7 +960,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    #datasets = ['dtneg']
+    datasets = ['drugs']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -1034,8 +1044,10 @@ if __name__=="__main__":
             data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
-
-
+        elif ds == 'drugs':
+            train_data = read_drugs(config.get('Files', 'drugstrain'), setting=setting)
+            test_data = read_drugs(config.get('Files', 'drugstest'), setting=setting)
+            idxs = write_train_dev_test_data_drugs(os.path.join(outpath, ds), train_data, test_data)
         print(clues)
         for clue in clues:
             print(clue)
