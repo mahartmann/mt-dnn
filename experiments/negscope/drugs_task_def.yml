@@ -1,0 +1,22 @@
+sherlockenembed:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - O
+  - I
+  - X
+  - CLS
+  - SEP
+  metric_meta:
+  - PCS
+  - SCOPEPRF
+  n_class: 5
+  loss: SeqCeCriterion
+  additional_features: cue_marker
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling

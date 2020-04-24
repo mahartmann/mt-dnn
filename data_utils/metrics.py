@@ -7,6 +7,7 @@ from sklearn.metrics import roc_auc_score
 from scipy.stats import pearsonr, spearmanr
 from seqeval.metrics import classification_report
 from data_utils.squad_eval import evaluate_func
+from sklearn.metrics import classification_report as classification_report_sklearn
 
 
 def compute_acc(predicts, labels):
@@ -113,6 +114,8 @@ def compute_scope_prf(predicts, labels, label_mapper):
     f = prf[2][0]
     return 'p:{:.4f} r:{:.4f} f:{:.4f}'.format(p,r,f)
 
+
+
 def compute_clue_f(predicts, labels, label_mapper):
     """
     compute correctly predicted full spans
@@ -140,7 +143,14 @@ def compute_clue_f(predicts, labels, label_mapper):
     #return f
 
 
-
+def compute_p_r_f_multi(predicts, labels, label_mapper):
+    label_strings = []
+    label_idxs = []
+    for key, val in label_mapper.tok2ind.items():
+        label_strings.append(key)
+        label_idxs.append(val)
+    f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings)
+    return f
 
 
 def compute_emf1(predicts, labels):
@@ -161,6 +171,7 @@ class Metric(Enum):
     PCS = 11
     CLUEF = 12
     SCOPEPRF = 13
+    PRF = 14
 
 
 
@@ -178,7 +189,8 @@ METRIC_FUNC = {
     Metric.F1MIC: compute_f1mic,
     Metric.PCS: compute_pcs,
     Metric.CLUEF: compute_clue_f,
-    Metric.SCOPEPRF: compute_scope_prf
+    Metric.SCOPEPRF: compute_scope_prf,
+    Metric.PRF: compute_p_r_f_multi
 
 }
 
@@ -203,6 +215,8 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
+        elif mm == Metric.PRF:
+            metric = metric_func(predictions, golds, label_mapper)
         else:
             if mm == Metric.AUC:
                 assert len(scores) == 2 * len(golds), "AUC is only valid for binary classification problem"
