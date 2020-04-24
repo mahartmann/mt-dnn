@@ -1,5 +1,5 @@
 from preprocessing.nested_xml import dfs, dfs3, build_surface, build_surface_ddi
-from preprocessing.data_splits import write_train_dev_test_data, write_train_dev_test_cue_data, write_train_dev_test_data_drugs
+from preprocessing.data_splits import *
 import xml.etree.ElementTree as ET
 import itertools
 import os
@@ -932,12 +932,28 @@ def get_clues(data):
     return clues
 
 def read_drugs(fname, setting=None):
-    with open(fname, newline='') as csvfile:
+    with open(fname, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile, delimiter='\t')
         data = []
         for row in reader:
+            review = row['review'].strip().replace('\t', ' ').replace('\n', ' ').replace('\r', ' ').replace('&#039;', "'").strip('"')
+            data.append({'rid': row[''].strip(), 'rating': row['rating'].strip(), 'review': review})
+    return data
 
-            data.append({'rid': row[''], 'rating': row['rating'], 'review': row['review']})
+
+def read_gad(fname, split):
+    data = []
+    with open(fname, encoding='utf-8') as f:
+        if split == 'train':
+            for line in f:
+                splt = line.strip('\n').split('\t')
+                data.append({'label': splt[1], 'seq': splt[0]})
+        elif split == 'test':
+            #skip first line
+            f.readline()
+            for line in f:
+                splt = line.strip('\n').split('\t')
+                data.append({'label': splt[2], 'seq': splt[1]})
     return data
 
 
@@ -960,7 +976,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['drugs']
+    datasets = ['adr']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -1048,6 +1064,23 @@ if __name__=="__main__":
             train_data = read_drugs(config.get('Files', 'drugstrain'), setting=setting)
             test_data = read_drugs(config.get('Files', 'drugstest'), setting=setting)
             idxs = write_train_dev_test_data_drugs(os.path.join(outpath, ds), train_data, test_data)
+        elif ds == 'gad':
+            # gad is the preprocessed version provided by biobert
+            # already has 10 train/test splits but no dev splits
+            gad_path = config.get('Files', 'gad')
+            for fold in [1,2,3,4,5,6,7,8,9,10]:
+                train_data = read_gad(os.path.join(gad_path, str(fold), 'train.tsv'), split='train')
+                test_data = read_gad(os.path.join(gad_path, str(fold), 'test.tsv'), split='test')
+                write_data_gad(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data,  test_data)
+        elif ds == 'adr':
+            # adr is the preprocessed version provided by biobert
+            # already has 10 train/test splits but no dev splits, same format as gad
+            adr_path = config.get('Files', 'adr')
+            for fold in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+                train_data = read_gad(os.path.join(adr_path, str(fold), 'train.tsv'), split='train')
+                test_data = read_gad(os.path.join(adr_path, str(fold), 'test.tsv'), split='test')
+                write_data_gad(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data, test_data)
+
         print(clues)
         for clue in clues:
             print(clue)

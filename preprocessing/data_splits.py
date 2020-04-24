@@ -22,6 +22,15 @@ def generate_train_dev_test_splits(num_data):
     test_idxs = idx[int(np.ceil((0.7+0.15)*len(idx))):]
     return train_idxs, dev_idxs, test_idxs
 
+def generate_train_dev_splits(num_data):
+    np.random.seed(42)
+    # generate 85/15 splits
+    idx = [i for i in range(num_data)]
+    np.random.shuffle(idx)
+    train_idxs = idx[:int(np.ceil(0.85*len(idx)))]
+    dev_idxs = idx[int(np.ceil(0.85*len(idx))):]
+    return train_idxs, dev_idxs
+
 
 def write_train_dev_test_data(fstem, data, setting):
     split_idxs = generate_train_dev_test_splits(len(data))
@@ -57,7 +66,11 @@ def write_train_dev_test_cue_data(fstem, data, split_idxs):
     return
 
 def write_train_dev_test_data_drugs(fstem, train_data, test_data):
-    split_idxs = generate_train_dev_test_splits(len(train_data))
+    """
+      split train_data into train/dev, test_split is fixed
+      :return:
+    """
+    split_idxs = generate_train_dev_splits(len(train_data))
     for i, splt in enumerate(['train', 'dev']):
         idxs = split_idxs[i]
         out_data = []
@@ -73,6 +86,31 @@ def write_train_dev_test_data_drugs(fstem, train_data, test_data):
     print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
                                                                            '{}_{}.tsv'.format(fstem, splt)))
     return split_idxs
+
+def write_data_gad(fstem, train_data, test_data):
+    """
+    split train_data into train/dev, test_split is fixed
+    :return:
+    """
+    split_idxs = generate_train_dev_splits(len(train_data))
+    for i, splt in enumerate(['train', 'dev']):
+        idxs = split_idxs[i]
+        out_data = []
+        for idx in idxs:
+            out_data.append([len(out_data), train_data[idx]['label'], train_data[idx]['seq']])
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),
+                                                                           '{}_{}.tsv'.format(fstem, splt)))
+    out_data = []
+    splt = 'test'
+    for elm in test_data:
+        out_data.append([len(out_data), elm['label'], elm['seq']])
+    write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+    print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
+                                                                       '{}_{}.tsv'.format(fstem, splt)))
+    return split_idxs
+
+
 
 
 
