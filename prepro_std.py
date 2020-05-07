@@ -243,6 +243,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 
 
     if data_format == DataFormat.PremiseOnly:
+
         build_data_premise_only(
             data,
             dump_path,
@@ -277,7 +278,7 @@ def parse_args():
 
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negScope/data/formatted')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/task_def1.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugs_task_def.yml")
 
     args = parser.parse_args()
     return args

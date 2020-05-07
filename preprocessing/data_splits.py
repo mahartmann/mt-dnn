@@ -87,7 +87,7 @@ def write_train_dev_test_data_drugs(fstem, train_data, test_data):
                                                                            '{}_{}.tsv'.format(fstem, splt)))
     return split_idxs
 
-def write_data_gad(fstem, train_data, test_data):
+def write_data_gad_format(fstem, train_data, test_data):
     """
     split train_data into train/dev, test_split is fixed
     :return:
@@ -109,9 +109,6 @@ def write_data_gad(fstem, train_data, test_data):
     print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
                                                                        '{}_{}.tsv'.format(fstem, splt)))
     return split_idxs
-
-
-
 
 
 

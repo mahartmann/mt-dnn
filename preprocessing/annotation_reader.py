@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import itertools
 import os
 import csv
+import json
 from preprocessing import clue_detection
 
 import spacy
@@ -957,6 +958,328 @@ def read_gad(fname, split):
     return data
 
 
+def read_biorelex(fname):
+    with open(fname) as f:
+        data = json.load(f)
+    out_data = []
+    for elm in data:
+        def parse_elm(elm):
+            data = []
+            text = elm['text']
+            interactions = elm['interactions']
+            for interaction in interactions:
+                print(interaction)
+                participants = interaction['participants']
+                # collect the replacements for this relation
+                replacements = {}
+                # counter marks if a participant is the first, second, nth participant in the relation
+                for counter, pid in enumerate(participants):
+                    ent = elm['entities'][pid]
+                    label = ent['label'].upper()
+                    for name in ent['names'].keys():
+                        for mention in ent['names'][name]['mentions']:
+                            print(pid, mention, label)
+                            start = mention[0]
+                            end = mention[1]
+                            replacements[(start, end, counter)] = label
+
+                new_text = replace_mentions(replacements, text)
+                print(new_text)
+                print('\n')
+                rel_data = {}
+                rel_data['paperid'] = elm['paperid']
+                rel_data['seq'] = new_text
+                rel_data['label'] = interaction['label']
+                rel_data['type'] = interaction['type']
+                rel_data['implicit'] = interaction['implicit']
+                data.append(rel_data)
+            return data
+
+        out_data.extend(parse_elm(elm))
+        print('\n\n')
+    return out_data
+
+
+def replace_mentions(replacements, text):
+    # produce a string where mentions of particpants are replaced by their labels
+    spans = sorted(list(replacements.keys()), key=lambda x: x[1])
+    new_text = ''
+    for i, span in enumerate(spans):
+        start = span[0]
+        end = span[1]
+        pid = span[2]
+        if i == 0:
+            new_text += text[:start] + '${}{}$'.format(replacements[span], pid)
+        else:
+            new_text += text[spans[i - 1][1]:start] + '${}{}$'.format(replacements[span], pid)
+        if i == len(spans) - 1:
+            new_text += text[end:]
+    new_text = new_text.replace('  ', ' ')
+    return new_text
+
+
+def read_cdr(fname):
+    root = ET.parse(fname).getroot()
+    out_data = []
+    for elm in root:
+        for doc in elm.iter('document'):
+            docid = doc.find('id').text
+            entities = {}
+            for passage in doc.iter('passage'):
+                offset = int(passage.find('offset').text)
+                text = passage.find('text').text
+                # collect the mention annotations
+                for rid, annotation in enumerate(passage.iter('annotation')):
+
+                    process = True
+                    aid = annotation.attrib['id']
+                    # ignore if it's an individual mention in a composite role
+                    for infon in annotation.iter('infon'):
+                        if infon.attrib['key'] == 'CompositeRole':
+                            if infon.text == 'IndividualMention':
+                                process = False
+                        elif infon.attrib['key'] == 'type':
+                            atype = infon.text
+                        elif infon.attrib['key'] == 'MESH':
+                            mesh = infon.text
+                    if process:
+                        span_start = int(annotation.find('location').attrib['offset'])
+                        span_end = span_start + int(annotation.find('location').attrib['length'])
+                        ent_text = annotation.find('text').text
+                        print('{}\t{}\t{}\t{}\t{}\t{}'.format(aid, atype, mesh, span_start, span_end, ent_text))
+                        print(ent_text)
+                        print(text[span_start - offset: span_end - offset])
+                        assert ent_text == text[span_start - offset: span_end - offset]
+                        entities.setdefault(mesh, []).append({'span': (span_start, span_end), 'type': type, 'text': ent_text})
+            # iterate through relation annotations
+            for relation in doc.iter('relation'):
+                print('##########################################')
+                rid = relation.attrib['id']
+                for infon in relation.iter('infon'):
+                    if infon.attrib['key'] == 'Chemical':
+                        chemical = infon.text
+                    elif infon.attrib['key'] == 'Disease':
+                        disease = infon.text
+                    elif infon.attrib['key'] == 'relation':
+                        relation_type = infon.text
+                # build a mention_replaced string for this relation
+                print(entities[chemical])
+                print(entities[disease])
+                assert len(entities[chemical]) == 1
+                assert len(entities[disease]) == 1
+                span_chemical = (entities[chemical]['span'][0], entities[chemical]['span'][1], '')
+                span_disease = (entities[disease]['span'][0], entities[disease]['span'][1], '')
+                replacements = {span_chemical: 'CHEMICAL', span_disease: 'DISEASE'}
+                new_text = replace_mentions(replacements, text)
+                print(rid)
+                print(new_text)
+
+                #new_text = replace_mentions(replacements, text)
+                #data_point = {}
+                #data_point['seq'] = new_text
+
+
+def read_ade_doc(fname_txt, fname_ann):
+    import scispacy
+    import spacy
+    nlp = spacy.load("en_core_web_sm")
+
+    class Token(object):
+        def __init__(self, start, end, surf, tid):
+            self.c_start = start
+            self.c_end = end
+            self.surface = surf
+            self.tid = tid
+
+        def set_label(self, label):
+            self.label = label
+
+    with open(fname_txt) as f:
+        text = f.read()
+    f.close()
+    doc = nlp(text)
+    for sent in doc.sents:
+        print(sent)
+    with open(fname_ann) as f:
+        annos = []
+        for line in f:
+            annos.append(line.strip())
+    tid2tok = {}
+    for anno in annos:
+        splt = anno.split('\t')
+        aid = splt[0]
+        label = splt[1].split()[0]
+        if aid.startswith('T'):
+            surface = splt[2]
+            if len(splt[1].split()) == 3:
+                span_start = int(splt[1].split()[1])
+                span_end = int(splt[1].split()[2].split(';')[0])
+                text_span = text[span_start:span_end]
+                tok = Token(span_start, span_end, surface, aid)
+            elif len(splt[1].split()) == 4:
+                span_start1 = int(splt[1].split()[1])
+                span_end1 = int(splt[1].split()[2].split(';')[0])
+                span_start2 = int(splt[1].split()[2].split(';')[1])
+                span_end2 = int(splt[1].split()[3])
+                if span_start2 - span_end1 > 3:
+                    break
+                text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2] ])
+                if text_span != surface:
+                    span_start2 -= 1
+                    text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2]])
+                if text_span != surface:
+                    text_span = text_span.replace(' ', '')
+                tok = Token(span_start1, span_end2, surface, aid)
+            elif len(splt[1].split()) == 5:
+                span_start1 = int(splt[1].split()[1])
+                span_end1 = int(splt[1].split()[2].split(';')[0])
+                span_start2 = int(splt[1].split()[2].split(';')[1])
+                span_end2 = int(splt[1].split()[3].split(';')[0])
+                span_start3 = int(splt[1].split()[3].split(';')[1])
+                span_end3 = int(splt[1].split()[4])
+                text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2], text[span_start3:span_end3]])
+                if text_span != surface:
+                    span_start2 -= 1
+                    text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2]])
+                if text_span != surface:
+                    text_span = text_span.replace(' ', '')
+                tok = Token(span_start1, span_end3, surface, aid)
+            #print(anno)
+            #print(len(surface))
+            #print(len(text_span))
+            assert surface.replace(' ', '') == text_span.replace(' ','')
+
+            tid2tok[aid] = tok
+    for anno in annos:
+        splt = anno.split('\t')
+        aid = splt[0]
+        label = splt[1].split()[0]
+        if aid.startswith('R'):
+            arg1 = splt[1].split()[1].split(':')[1]
+            arg2 = splt[1].split()[2].split(':')[1]
+            span1 = (tid2tok[arg1].c_start, tid2tok[arg1].c_end, '')
+            span2 = (tid2tok[arg2].c_start, tid2tok[arg2].c_end, '')
+            replacements = {span1: tid2tok[arg1].surface, span2: tid2tok[arg2].surface}
+            new_text = replace_mentions(replacements, text)
+            #print(new_text)
+
+
+'''
+tid = line.split('\t')[0]
+            label = splt.split()[0]
+            tok = Token(start, end, surf, tid)
+
+            tok.set_label(label)
+            tid2tok[tid] = tok
+            span2tok.setdefault(start, []).append(tok)
+            for st in range(start, end):
+                span2tok.setdefault(st, []).append(tok)
+
+    span2r = {}
+    for line in anno_lines:
+
+        if line.split('\t')[0].startswith('R'):
+            splt = line.split('\t')[1].split()
+            rid = line.split('\t')[0]
+            label = line.split('\t')[1].split()[0]
+            for elm in splt:
+                if ':' in elm:
+                    span = (tid2tok[elm.split(':')[-1]].c_start, tid2tok[elm.split(':')[-1]].c_end)
+                    span2r.setdefault(tid2tok[elm.split(':')[-1]].c_start, []).append((span, elm, rid, label))
+                    for st in range(tid2tok[elm.split(':')[-1]].c_start, tid2tok[elm.split(':')[-1]].c_end):
+                        span2r.setdefault(st, []).append(((st, tid2tok[elm.split(':')[-1]].c_end), elm, rid, label))
+
+    i = 0
+
+    surf2span = []
+    chars = []
+    while i < len(s) - 1:
+
+        # add chars up to next whitespace
+        c = s[i]
+        start = i
+        while i < len(s) - 1:
+            if c == ' ':
+                i += 1
+                c = s[i]
+                break
+            chars.append(c)
+            i += 1
+            c = s[i]
+
+        surf2span.append((''.join(chars), start))
+        chars = []
+    sents = []
+    sent = []
+
+    for surf, span in surf2span:
+
+        if '\n' in surf:
+            sent.append((surf.strip('\n'), span))
+            sents.append(sent)
+            sent = []
+        else:
+            sent.append((surf, span))
+
+    for sent in sents:
+
+        tok2labels = []
+
+        for surf, span in sent:
+
+            if surf != '':
+                labels = []
+                if span in span2r:
+                    labels.extend(['{}:{}:{}'.format(elm[3], elm[1], elm[2]) for elm in span2r[span]])
+
+                if span in span2tok:
+                    labels.extend(['{}:_{}'.format(elm.tid, elm.label) for elm in span2tok[span]])
+                else:
+                    labels.append('Unlabeled')
+                tok2labels.append((surf, set(labels)))
+        sent_labels = set()
+        for _, labels in tok2labels:
+            for label in labels:
+                if label.split(':')[-1].startswith('R'):
+                    sent_labels.add(label.split(':')[-1])
+        sent_data = []
+        for sent_label in sent_labels:
+            print('\n')
+            print(sent_label)
+            out_toks = []
+            out_labels = []
+            cue_labelseq =[]
+            for tok, labels in tok2labels:
+                is_cue = 0
+                def tok2sent_labels(labels):
+                    return set([label.split(':')[-1] for label in labels if label.split(':')[-1].startswith('R')])
+
+
+                if sent_label in tok2sent_labels(labels):
+                    out_label = 'I'
+                    print('{}\t{}'.format(tok, labels))
+                    if len([elm for elm in labels if 'NegMarker' in elm]) > 0:
+                        is_cue = 1
+                        if setting == 'augment':
+                            out_toks.append('CUE')
+                            out_labels.append(out_label)
+                            cue_labelseq.append(is_cue)
+                else:
+                    out_label = 'O'
+                    print('{}\tUnlabeled'.format(tok))
+                out_toks.append(tok)
+                out_labels.append(out_label)
+                cue_labelseq.append(is_cue)
+
+            sent_data.append([out_labels, out_toks, cue_labelseq])
+        if len(sent_data) > 0:
+            data.append(sent_data)
+            cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
+
+'''
+
+
 
 def load_data_from_tsv(fname):
     data = []
@@ -976,7 +1299,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['adr']
+    datasets = ['ade']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -1071,7 +1394,7 @@ if __name__=="__main__":
             for fold in [1,2,3,4,5,6,7,8,9,10]:
                 train_data = read_gad(os.path.join(gad_path, str(fold), 'train.tsv'), split='train')
                 test_data = read_gad(os.path.join(gad_path, str(fold), 'test.tsv'), split='test')
-                write_data_gad(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data,  test_data)
+                write_data_gad_format(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data,  test_data)
         elif ds == 'adr':
             # adr is the preprocessed version provided by biobert
             # already has 10 train/test splits but no dev splits, same format as gad
@@ -1079,8 +1402,24 @@ if __name__=="__main__":
             for fold in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
                 train_data = read_gad(os.path.join(adr_path, str(fold), 'train.tsv'), split='train')
                 test_data = read_gad(os.path.join(adr_path, str(fold), 'test.tsv'), split='test')
-                write_data_gad(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data, test_data)
-
+                write_data_gad_format(os.path.join(outpath, '{}{}'.format(ds, fold)), train_data, test_data)
+        elif ds == 'biorelex':
+            # use official dev split for testing
+            train_data = read_biorelex(config.get('Files', 'biorelex_train'))
+            test_data = read_biorelex(config.get('Files', 'biorelex_dev'))
+            write_data_gad_format(os.path.join(outpath, ds), train_data, test_data)
+        elif ds == 'cdr':
+            train_data = read_cdr(config.get('Files', 'cdr_train'))
+            #test_data = read_biorelex(config.get('Files', 'biorelex_dev'))
+            #write_data_gad_format(os.path.join(outpath, ds), train_data, test_data)
+        elif ds == 'ade':
+            fnames = list(set([elm.split('.')[0] for elm in os.listdir(config.get('Files', 'ade_train'))]))
+            fnames = sorted(fnames)
+            for f in fnames:
+                print(f)
+                read_ade_doc(os.path.join(config.get('Files', 'ade_train'), '{}.txt'.format(f)),
+                             os.path.join(config.get('Files', 'ade_train'), '{}.ann'.format(f)))
+                break
         print(clues)
         for clue in clues:
             print(clue)
