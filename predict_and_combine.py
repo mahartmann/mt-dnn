@@ -22,7 +22,9 @@ def dump(path, data):
 def rejoin_subwords(toks, labels):
     filtered_toks = []
     filtered_labels = []
+    print(toks)
     for i, tok in enumerate(toks):
+
         label = labels[i]
         if tok.startswith('##'):
             filtered_toks[-1].append(tok.strip('##'))
@@ -61,7 +63,7 @@ def main(args):
     model.load(checkpoint_path)
 
     #tokenizer = BertTokenizer.from_pretrained(model.config['bert_model_type'])
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
     encoder_type = config.get('encoder_type', EncoderModelType.BERT)
 
     test_data_set = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id, task_def=task_def)
@@ -77,7 +79,7 @@ def main(args):
         uid2pred = {}
         for uid, pred in zip(results['uids'], results['predictions']):
             uid2pred[uid] = pred
-        silver_signal = 'scope'
+
         setting= 'augment'
         out_seqs = []
         out_labels = []
@@ -106,7 +108,7 @@ def main(args):
                 out_seqs.append(filtered_toks)
 
 
-            if silver_signal == 'cue':
+            if args.silver_signal == 'cue':
                 data = []
                 # produce cue annotated data
                 for seq, labels in zip(out_seqs, out_labels):
@@ -129,10 +131,10 @@ def main(args):
                             augmented_cue_labelseq.append(label)
                             augmented_labels.append(None)
                         data.append([augmented_labels, augmented_seq, augmented_cue_labelseq])
-                write_split(fname='silver_cues_augmented.tsv', data=[[i] + elm for i, elm in enumerate(data)])
+                write_split(fname=args.outfile, data=[[i] + elm for i, elm in enumerate(data)])
 
 
-            elif silver_signal == 'scope':
+            elif args.silver_signal == 'scope':
                 data = []
                 # produce scope annotated data
                 for seq, labels in zip(out_seqs, out_labels):
@@ -142,7 +144,7 @@ def main(args):
                     assert len(scope_labels) == len(cue_labelseq) == len(seq)
 
                     data.append([scope_labels, seq, cue_labelseq])
-                write_split(fname='silver_scope.tsv', data=data)
+                write_split(fname=args.outfile, data=data)
 
 
 
@@ -153,21 +155,21 @@ def main(args):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task_def", type=str, default="experiments/negscope/cue_task_def.yml")
-    parser.add_argument("--task", type=str, default='sherlocken#cues')
+    parser.add_argument("--task_def", type=str, default="experiments/negscope/scope_task_def.yml")
+    parser.add_argument("--task", type=str, default='biofull')
     parser.add_argument("--task_id", type=int, help="the id of this task when training")
 
     parser.add_argument("--prep_input", type=str,
-                        default="/home/mareike/PycharmProjects/negScope/data/formatted/bert-base-uncased_lower/sherlocken#cues_train.json")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/biofull#cues_train.json")
+    parser.add_argument("--outfile", type=str,
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/biofull#silvercuessilverscopes_train.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
-    #parser.add_argument("--tokenizer", type=str, help='tokenizer for processing the raw input', 'default')
+    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='scope')
     parser.add_argument('--max_seq_len', type=int, default=512)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-
-    parser.add_argument("--checkpoint", default='checkpoint/f1b35a39-4615-4b02-9718-02c6179c63da/model_0.pt', type=str)
-    #parser.add_argument("--checkpoint", default='checkpoint/f1b35a39-4615-4b02-9718-02c6179c63da/model_0.pt', type=str)
+    parser.add_argument("--checkpoint", default='checkpoint/73e64cad-cb97-4d15-b59e-ed97db329fd5/model_4.pt', type=str)
     args = parser.parse_args()
     main(args)
