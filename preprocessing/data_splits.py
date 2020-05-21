@@ -63,8 +63,7 @@ def write_train_dev_test_cue_data(fstem, data, split_idxs):
             out_data.append({'uid': uid,
                              'seq': elm[1],
                              'labels': ['1' if label.startswith('1') else '0' for label in elm[0] ],
-                             #'sid': '{}_{}'.format(sid, cid),
-                             #'cue_indicator': elm[2]
+                             'sid': '{}_{}'.format(uid, 0)
                              })
 
         write_split('{}#cues_{}.tsv'.format(fstem, splt), out_data)
