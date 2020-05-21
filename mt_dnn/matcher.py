@@ -90,7 +90,7 @@ class SANBertNetwork(nn.Module):
             ################################################################
             ######## Add additional layers used during encoding ############
             ################################################################
-            if task_def.additional_features == AdditionalFeatures.cue_marker:
+            if task_def.additional_features == AdditionalFeatures.cue_indicator:
                 embeds = nn.Embedding(2, hidden_size)
                 self.additional_input_features_list.append(embeds)
             else: self.additional_input_features_list.append(None)

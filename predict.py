@@ -16,21 +16,36 @@ def dump(path, data):
     with open(path, 'w') as f:
         json.dump(data, f)
 
+def bool_flag(s):
+    """
+    Parse boolean arguments from the command line.
+    """
+    if s.lower() in ['off', 'false', '0']:
+        return False
+    if s.lower() in ['on', 'true', '1']:
+        return True
+    raise argparse.ArgumentTypeError("invalid value for a boolean flag (0 or 1)")
+
 parser = argparse.ArgumentParser()
-parser.add_argument("--task_def", type=str, default="experiments/glue/glue_task_def.yml")
-parser.add_argument("--task", type=str)
+parser.add_argument("--task_def", type=str, default="experiments/negscope/scope_task_def.yml")
+parser.add_argument("--task", type=str, default='biofull')
+#parser.add_argument("--test_set", type=str, default='biofull#silvercues_train')
 parser.add_argument("--task_id", type=int, help="the id of this task when training")
 
-parser.add_argument("--prep_input", type=str)
-parser.add_argument("--with_label", action="store_true")
-parser.add_argument("--score", type=str, help="score output path")
+parser.add_argument("--prep_input", type=str,
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/biofull#silvercues_train.json")
+#parser.add_argument("--outfile", type=str,
+#                        default="/home/mareike/PycharmProjects/negscope/data/formatted/biofull#silvercues_train.tsv")
+parser.add_argument("--with_label", type=bool_flag, default=False )
+parser.add_argument("--score", type=str, help="score output path", default='tmp')
 
 parser.add_argument('--max_seq_len', type=int, default=512)
 parser.add_argument('--batch_size_eval', type=int, default=8)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
-                    help='whether to use GPU acceleration.')
+                        help='whether to use GPU acceleration.')
+parser.add_argument("--checkpoint", default='checkpoint/310df1bd-4f2f-48db-a3c7-b1a07f678844/model_4.pt', type=str)
 
-parser.add_argument("--checkpoint", default='mt_dnn_models/bert_model_base_uncased.pt', type=str)
+
 
 args = parser.parse_args()
 
@@ -45,6 +60,9 @@ task_def = task_defs.get_task_def(prefix)
 data_type = task_defs._data_type_map[args.task]
 task_type = task_defs._task_type_map[args.task]
 metric_meta = task_defs._metric_meta_map[args.task]
+for key in task_def.label_vocab:
+    print(key)
+print(task_def.label_vocab)
 # load model
 checkpoint_path = args.checkpoint
 assert os.path.exists(checkpoint_path)
@@ -63,11 +81,15 @@ collater = Collater(is_train=False, encoder_type=encoder_type)
 test_data = DataLoader(test_data_set, batch_size=args.batch_size_eval, collate_fn=collater.collate_fn, pin_memory=args.cuda)
 
 with torch.no_grad():
-    test_metrics, test_predictions, scores, golds, test_ids = eval_model(model, test_data,
+    test_metrics, test_predictions, scores, golds, test_ids = eval_model(model, test_data, label_mapper=task_def.label_vocab,
                                                                          metric_meta=metric_meta,
                                                                          use_cuda=args.cuda, with_label=args.with_label)
 
     results = {'metrics': test_metrics, 'predictions': test_predictions, 'uids': test_ids, 'scores': scores}
+    #print(results)
     dump(args.score, results)
     if args.with_label:
         print(test_metrics)
+
+
+

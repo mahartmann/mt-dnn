@@ -33,6 +33,7 @@ def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_m
     ids = []
     metrics = {}
     for idx, (batch_info, batch_data) in enumerate(data):
+
         if idx % 100 == 0:
             print("predicting {}".format(idx))
         batch_info, batch_data = Collater.patch_data(use_cuda, batch_info, batch_data)

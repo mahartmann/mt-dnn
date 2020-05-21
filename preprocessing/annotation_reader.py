@@ -9,8 +9,6 @@ from preprocessing import clue_detection
 
 import spacy
 from spacy.matcher import Matcher
-from spacy.lang.en import English
-from spacy.tokens import Span
 from spacy.tokenizer import Tokenizer
 import ast
 
@@ -116,10 +114,12 @@ def get_clue_annotated_data(sent_data):
 
         idx = 0
         for tok in sent:
+
             if tok != 'CUE':
                 idx += 1
             else:
                 labels[idx] = '1_{}'.format(i)
+    print(labels)
     return [labels, seq]
 
 
@@ -1299,7 +1299,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['ade']
+    datasets = ['iula']
     clues = set()
     # parse bioscope abstracts
     import configparser
@@ -1307,6 +1307,7 @@ if __name__=="__main__":
     cfg = 'config.cfg'
     config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     config.read(cfg)
+    print(config)
     outpath = config.get('Files', 'preproc_data')
     make_directory(outpath)
 
@@ -1318,16 +1319,17 @@ if __name__=="__main__":
     matcher = Matcher(nlp.vocab)
 
     lexicon_file = config.get('Files', 'triggers_en')
-    triggers = read_file(lexicon_file)
-    clue_detection.setup_matcher(triggers, matcher)
+    #triggers = read_file(lexicon_file)
+    #clue_detection.setup_matcher(triggers, matcher)
 
 
-    setting = 'embed'
+    setting = 'augment'
     for ds in datasets:
         if ds == 'biofull':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bioabstracts':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)

@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import json
 """
 produce train/test/dev splits
 """
@@ -37,12 +38,14 @@ def write_train_dev_test_data(fstem, data, setting):
     for i, splt in enumerate(['train', 'dev', 'test']):
         idxs = split_idxs[i]
         out_data = []
-        for idx in idxs:
-            for elm in data[idx]:
-                out_data.append([len(out_data)] + elm)
-        number_elms = 2
-        if len(elm[2]) > 0:
-            number_elms = 3
+        for sid, idx in enumerate(idxs):
+            for cid, elm in enumerate(data[idx]):
+                uid = len(out_data)
+                out_data.append({'uid': uid,
+                                 'seq': elm[1],
+                                 'labels': elm[0],
+                                 'sid': '{}_{}'.format(sid, cid),
+                                 'cue_indicator': elm[2]})
         fstem_out = fstem
         if setting == 'embed':
             fstem_out = fstem+'embed'
@@ -52,14 +55,17 @@ def write_train_dev_test_data(fstem, data, setting):
     return  split_idxs
 
 def write_train_dev_test_cue_data(fstem, data, split_idxs):
-    number_elms = 2
     for i, splt in enumerate(['train', 'dev', 'test']):
         out_data = []
         idxs = split_idxs[i]
-        for idx in idxs:
+        for uid, idx in enumerate(idxs):
             elm = data[idx]
-
-            out_data.append([len(out_data), ['I' if l.startswith('1') else 'O' for l in elm[0]  ], elm[1]])
+            out_data.append({'uid': uid,
+                             'seq': elm[1],
+                             'labels': ['1' if label.startswith('1') else '0' for label in elm[0] ],
+                             #'sid': '{}_{}'.format(sid, cid),
+                             #'cue_indicator': elm[2]
+                             })
 
         write_split('{}#cues_{}.tsv'.format(fstem, splt), out_data)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}#cues_{}.tsv'.format(fstem, splt) ))
@@ -112,14 +118,20 @@ def write_data_gad_format(fstem, train_data, test_data):
 
 
 
-def write_split(fname, data):
+def write_split(fname, data, json_format=True):
     outlines = []
-    for elm in data:
-        s = ''
-        for f in elm:
-            s += '{}\t'.format(f)
-        outlines.append(s.strip('\t') + '\n')
-    write_lines(fname, outlines)
+    if not json_format:
+        for elm in data:
+            s = ''
+            for f in elm:
+                s += '{}\t'.format(f)
+            outlines.append(s.strip('\t') + '\n')
+        write_lines(fname, outlines)
+    else:
+        with open(fname, 'w') as f:
+            for elm in data:
+                f.write(json.dumps(elm) + '\n')
+        f.close()
 
 
 if __name__=="__main__":

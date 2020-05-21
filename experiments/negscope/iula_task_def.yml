@@ -1,0 +1,34 @@
+iula#cues:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "1"
+  - "0"
+  metric_meta:
+  - CLUEF
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+iula:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  metric_meta:
+  - CLUEF
+  n_class: 2
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling

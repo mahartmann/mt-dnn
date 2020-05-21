@@ -7,7 +7,7 @@ import random
 import numpy as np
 from shutil import copyfile
 from data_utils.task_def import TaskType, DataFormat
-from data_utils.task_def import EncoderModelType, AdditionalFeatures, get_enum_name_from_repr_str
+from data_utils.task_def import EncoderModelType, AdditionalFeatures, get_additional_feature_names
 import tasks
 from torch.utils.data import Dataset, DataLoader, BatchSampler
 from experiments.exp_def import TaskDef
@@ -241,7 +241,9 @@ class Collater:
         for key in sample.keys():
             if key in AdditionalFeatures:
                 print('############ {}'.format(key))
-                return key
+                additional_features.append(key)
+        if len(additional_features) > 0:
+            return additional_features
         return None
 
     def rebatch(self, batch):
@@ -259,10 +261,12 @@ class Collater:
                 olab = sample['olabel'][idx]
                 additional_features = None
                 if self.get_additional_feature_key(sample):
-                    key = self.get_additional_feature_key(sample)
-                    additional_features = sample[key][idx]
-                    print(additional_features)
-                newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'], 'true_label': olab, 'additional_features': additional_features})
+                    keys = self.get_additional_feature_key(sample)
+                    for key in keys:
+                        additional_features = sample[key][idx]
+
+                newbatch.append({'uid': uid, 'token_id': token_id, 'type_id': type_id, 'label':sample['label'],
+                                 'true_label': olab, 'additional_features': additional_features})
         return newbatch
 
     def __if_pair__(self, data_type):
@@ -288,7 +292,11 @@ class Collater:
         # prepare model input
         # the additional features were converted to a repr(Enum)
 
-        additional_features_name = get_enum_name_from_repr_str(task_def['additional_features'])
+        additional_features_names = get_additional_feature_names(task_def['additional_features'])
+        additional_features_name = None
+        for elm in additional_features_names:
+            if elm != 'sid':
+                additional_features_name = elm
         batch_info, batch_data = self._prepare_model_input(batch, data_type, additional_features_name)
         batch_info['task_id'] = task_id  # used for select correct decoding head
         batch_info['input_len'] = len(batch_data)  # used to select model inputs
@@ -359,6 +367,11 @@ class Collater:
                     batch_info['answer'] = [sample['answer'] for sample in batch]
 
         batch_info['uids'] = [sample['uid'] for sample in batch]  # used in scoring
+
+        #if 'sid' in set(get_additional_feature_names(task_def['additional_features'])):
+        #    print(sample.keys())
+        #    print(sample[1])
+        #    batch_info['sids'] = [sample['sid'] for sample in batch]
         return batch_info, batch_data
 
     def _get_max_len(self, batch, key='token_id'):
