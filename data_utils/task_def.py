@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 from enum import IntEnum
+from ast import literal_eval
 class TaskType(IntEnum):
     Classification = 1
     Regression = 2
@@ -25,8 +26,9 @@ class EncoderModelType(IntEnum):
     SAN = 4
 
 class AdditionalFeatures(IntEnum):
-    cue_marker = 1
+    cue_indicator = 1
     scope_markers = 2
+    sid = 3
 
 
 def get_enum_name_from_repr_str(s):
@@ -39,3 +41,14 @@ def get_enum_name_from_repr_str(s):
     if ename == 'None':
         ename = None
     return ename
+
+def get_additional_feature_names(l):
+    feature_names = []
+    elms = l.split(',')
+    for elm in elms:
+        elm = elm.strip('[]')
+        feature_names.append(get_enum_name_from_repr_str(elm))
+    if len(feature_names) > 0:
+        return feature_names
+    else:
+        return None

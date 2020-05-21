@@ -59,7 +59,7 @@ class TaskDefs:
             enable_san_map[task] = task_def["enable_san"]
 
             if 'additional_features' in task_def:
-                additional_features_map[task] = AdditionalFeatures[task_def['additional_features']]
+                additional_features_map[task] = [AdditionalFeatures[f] for f in task_def['additional_features']]
             else: additional_features_map[task] = None
             if "labels" in task_def:
                 labels = task_def["labels"]

@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from data_utils import load_data
-from data_utils.task_def import TaskType, DataFormat, get_enum_name_from_repr_str
+from data_utils.task_def import TaskType, DataFormat, get_enum_name_from_repr_str, get_additional_feature_names
 from data_utils.log_wrapper import create_logger
 from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
@@ -159,7 +159,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                 features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids}
                 writer.write('{}\n'.format(json.dumps(features)))
 
-    def build_data_sequence_with_additional_features(data, dump_path, additional_features_id, max_seq_len=MAX_SEQ_LEN,
+    def build_data_sequence_with_additional_features(data, dump_path, additional_features_ids, max_seq_len=MAX_SEQ_LEN,
                                                      tokenizer=None,
                                                      encoderModelType=EncoderModelType.BERT, label_mapper=None):
         with open(dump_path, 'w', encoding='utf-8') as writer:
@@ -175,22 +175,32 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                     for j in range(len(subwords)):
                         if j == 0:
                             labels.append(sample['label'][i])
-                            additional_features.append(sample[additional_features_id][i])
+                            additional_features.append({additional_features_id: sample[additional_features_id][i] for additional_features_id in additional_features_ids if additional_features_id!= 'sid'})
                         else:
                             labels.append(label_mapper['X'])
-                            additional_features.append(sample[additional_features_id][i])
+                            additional_features.append({additional_features_id: sample[additional_features_id][i] for additional_features_id in additional_features_ids if additional_features_id!= 'sid'})
                 if len(premise) > max_seq_len - 2:
                     tokens = tokens[:max_seq_len - 2]
                     labels = labels[:max_seq_len - 2]
                     additional_features = additional_features[:max_seq_len - 2]
 
                 label = [label_mapper['CLS']] + labels + [label_mapper['SEP']]
-                additional_features = [0] + additional_features + [0]
+                #additional_features = [0] + additional_features + [0]
+                additional_features = [{additional_features_id: 0 for additional_features_id in
+                 additional_features_ids if additional_features_id!= 'sid'}] + additional_features + [{additional_features_id: 0 for additional_features_id in
+                 additional_features_ids if additional_features_id!= 'sid'}]
+
                 input_ids = tokenizer.convert_tokens_to_ids([tokenizer.cls_token] + tokens + [tokenizer.sep_token])
                 assert len(label) == len(input_ids) == len(additional_features)
                 type_ids = [0] * len(input_ids)
-                features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids,
-                            additional_features_id: additional_features}
+                features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids}
+
+                for additional_features_id in additional_features_ids:
+                    if additional_features_id != 'sid':
+                        features[additional_features_id] = [f[additional_features_id] for f in additional_features]
+                    else:
+                        features['sid'] = sample['sid']
+
                 writer.write('{}\n'.format(json.dumps(features)))
 
     def build_data_mrc(data, dump_path, max_seq_len=MRC_MAX_SEQ_LEN, tokenizer=None, label_mapper=None, is_training=True):
@@ -277,8 +287,8 @@ def parse_args():
                         help='the type of base model, e.g. bert or xlnet')
 
     parser.add_argument('--do_lower_case', action='store_true')
-    parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negScope/data/formatted')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugs_task_def.yml")
+    parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/negscope_task_def.yml")
 
     args = parser.parse_args()
     return args
@@ -336,7 +346,7 @@ def main(args):
                 task_def.data_type,
                 encoderModelType=encoder_model,
                 lab_dict=task_def.label_vocab,
-                additional_features=get_enum_name_from_repr_str(task_def['additional_features']))
+                additional_features=get_additional_feature_names(task_def['additional_features']))
 
 
 if __name__ == '__main__':

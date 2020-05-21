@@ -1,10 +1,10 @@
 import json
 import numpy as np
 
-from data_utils.task_def import TaskType, DataFormat, get_enum_name_from_repr_str
+from data_utils.task_def import TaskType, DataFormat, get_additional_feature_names
 import tasks
 
-def load_data(file_path, task_def):
+def load_data(file_path, task_def, json_format=True):
     data_format = task_def.data_type
     task_type = task_def.task_type
     label_dict = task_def.label_vocab
@@ -12,36 +12,53 @@ def load_data(file_path, task_def):
         assert data_format == DataFormat.PremiseAndMultiHypothesis
 
     rows = []
-    for line in open(file_path, encoding="utf-8"):
-        fields = line.strip("\n").split("\t")
-        if data_format == DataFormat.PremiseOnly:
-            assert len(fields) == 3
-            row = {"uid": fields[0], "label": fields[1], "premise": fields[2]}
-        elif data_format == DataFormat.PremiseAndOneHypothesis:
-            assert len(fields) == 4
-            row = {
-                "uid": fields[0],
-                "label": fields[1],
-                "premise": fields[2],
-                "hypothesis": fields[3]}
-        elif data_format == DataFormat.PremiseAndMultiHypothesis:
-            assert len(fields) > 5
-            row = {"uid": fields[0], "ruid": fields[1].split(","), "label": fields[2], "premise": fields[3],
-                   "hypothesis": fields[4:]}
-        elif data_format == DataFormat.Seqence:
-            row = {"uid": fields[0], "label": eval(fields[1]), "premise": eval(fields[2])}
-            if get_enum_name_from_repr_str(task_def['additional_features']):
-                additional_features = get_enum_name_from_repr_str(task_def['additional_features'])
-                row[additional_features] = eval(fields[3])
 
-        elif data_format == DataFormat.MRC:
-            row = {
-                "uid": fields[0],
-                "label": fields[1],
-                "premise": fields[2],
-                "hypothesis": fields[3]}
+    for line in open(file_path, encoding="utf-8"):
+        if json_format:
+            d = json.loads(line.strip())
+            print(get_additional_feature_names(task_def['additional_features']))
+            if data_format == DataFormat.PremiseOnly:
+                row = {"uid": d['uid'], "label": d['labels'], "premise": d['seq']}
+                if get_additional_feature_names(task_def['additional_features']):
+                    for additional_features in get_additional_feature_names(task_def['additional_features']):
+                        row[additional_features] = d[additional_features]
+            elif data_format == DataFormat.Seqence:
+                row = {"uid": d['uid'], "label": d['labels'], "premise": d['seq']}
+                if get_additional_feature_names(task_def['additional_features']):
+                    for additional_features in get_additional_feature_names(task_def['additional_features']):
+                        row[additional_features] = d[additional_features]
+            print(row)
         else:
-            raise ValueError(data_format)
+
+            fields = line.strip("\n").split("\t")
+            if data_format == DataFormat.PremiseOnly:
+                assert len(fields) == 3
+                row = {"uid": fields[0], "label": fields[1], "premise": fields[2]}
+            elif data_format == DataFormat.PremiseAndOneHypothesis:
+                assert len(fields) == 4
+                row = {
+                    "uid": fields[0],
+                    "label": fields[1],
+                    "premise": fields[2],
+                    "hypothesis": fields[3]}
+            elif data_format == DataFormat.PremiseAndMultiHypothesis:
+                assert len(fields) > 5
+                row = {"uid": fields[0], "ruid": fields[1].split(","), "label": fields[2], "premise": fields[3],
+                       "hypothesis": fields[4:]}
+            elif data_format == DataFormat.Seqence:
+                row = {"uid": fields[0], "label": eval(fields[1]), "premise": eval(fields[2])}
+                if get_enum_name_from_repr_str(task_def['additional_features']):
+                    additional_features = get_enum_name_from_repr_str(task_def['additional_features'])
+                    row[additional_features] = eval(fields[3])
+
+            elif data_format == DataFormat.MRC:
+                row = {
+                    "uid": fields[0],
+                    "label": fields[1],
+                    "premise": fields[2],
+                    "hypothesis": fields[3]}
+            else:
+                raise ValueError(data_format)
 
         task_obj = tasks.get_task_obj(task_def)
         if task_obj is not None:
