@@ -63,7 +63,7 @@ def main(args):
     model.load(checkpoint_path)
 
     #tokenizer = BertTokenizer.from_pretrained(model.config['bert_model_type'])
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
     encoder_type = config.get('encoder_type', EncoderModelType.BERT)
 
     test_data_set = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id, task_def=task_def)
