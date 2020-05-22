@@ -4,8 +4,8 @@ iula#cues:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - "1"
   - "0"
+  - "1"
   - "X"
   - "CLS"
   - "SEP"
