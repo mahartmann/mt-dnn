@@ -120,7 +120,7 @@ def main(args):
             # produce cue annotated data
             for sid, seq in enumerate(out_seqs):
                 labels = out_labels[sid]
-                multi_cue_labelseq = [0 if label_map[elm] != 'I' else 1 for elm in labels]
+                multi_cue_labelseq = [0 if label_map[elm] != '1' else 1 for elm in labels]
                 # if we have n unrelated cues, replicate the labelseq n times
 
                 def replicate_labelseq(seq):
@@ -142,10 +142,12 @@ def main(args):
                             i += 1
                     if 1 in repl:
                         replicates.append(repl)
+                    #print(replicates)
                     return replicates
 
                 for cid, cue_labelseq in enumerate(replicate_labelseq(multi_cue_labelseq)):
                     scope_labels = [None for elm in seq]
+
                     assert len(scope_labels) == len(cue_labelseq) == len(seq)
                     uid = len(data)
 
@@ -172,6 +174,7 @@ def main(args):
                                          'seq': augmented_seq,
                                          'cue_indicator': augmented_cue_labelseq,
                                          'sid': '{}_{}'.format(sid, cid)})
+            print(data)
             write_split(fname=args.outfile, data=data)
 
 
@@ -239,17 +242,17 @@ def re_combine_data(sids, data, label_mapper):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task_def", type=str, default="experiments/negscope/negscope_task_def.yml")
-    parser.add_argument("--task", type=str, default='iula')
+    parser.add_argument("--task_def", type=str, default="experiments/negscope/iula_task_def.yml")
+    parser.add_argument("--task", type=str, default='iula#cues')
     parser.add_argument("--task_id", type=int, help="the id of this task when training")
 
     parser.add_argument("--prep_input", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/iula_test.json")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/iulanocues_test.json")
     parser.add_argument("--outfile", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/iula#silverscopes_test.tsv")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/iulasilvercue_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
-    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='scope')
+    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='cue')
     parser.add_argument('--max_seq_len', type=int, default=512)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
