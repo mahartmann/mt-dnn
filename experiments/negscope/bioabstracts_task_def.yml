@@ -32,7 +32,8 @@ bioabstracts:
   - "CLS"
   - "SEP"
   metric_meta:
-  - CLUEF
+  - PCS
+  - SCOPEPRF
   n_class: 5
   loss: SeqCeCriterion
   split_names:
