@@ -32,8 +32,10 @@ ddi:
   - "CLS"
   - "SEP"
   metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
   - PCS
-  - SCOPEPRF
   n_class: 5
   loss: SeqCeCriterion
   split_names:

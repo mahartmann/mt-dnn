@@ -77,12 +77,23 @@ def compute_pcs(predicts, labels, label_mapper):
 
     for predict, label in zip(predicts, labels):
         predict, label = trim(predict, label)
+
         if predict == label:
+
             tp += 1
 
     return tp/len(predicts)
 
-def compute_scope_prf(predicts, labels, label_mapper):
+def compute_scope_p(predicts, labels, label_mapper):
+    return compute_scope_prf(predicts, labels, label_mapper, metric='p')
+
+def compute_scope_r(predicts, labels, label_mapper):
+    return compute_scope_prf(predicts, labels, label_mapper, metric='r')
+
+def compute_scope_f(predicts, labels, label_mapper):
+    return compute_scope_prf(predicts, labels, label_mapper, metric='f')
+
+def compute_scope_prf(predicts, labels, label_mapper, metric='f'):
     """
     compute correctly predicted full spans
     :param predicts:
@@ -112,7 +123,9 @@ def compute_scope_prf(predicts, labels, label_mapper):
     p = prf[0][0]
     r = prf[1][0]
     f = prf[2][0]
-    return 'p:{:.4f} r:{:.4f} f:{:.4f}'.format(p,r,f)
+    if metric == 'f': return f
+    elif metric == 'p': return p
+    elif metric == 'r': return r
 
 
 
@@ -171,8 +184,10 @@ class Metric(Enum):
     F1MIC = 10
     PCS = 11
     CLUEF = 12
-    SCOPEPRF = 13
-    PRF = 14
+    SCOPEP = 13
+    SCOPER = 14
+    SCOPEF = 15
+    PRF = 16
 
 
 
@@ -190,7 +205,9 @@ METRIC_FUNC = {
     Metric.F1MIC: compute_f1mic,
     Metric.PCS: compute_pcs,
     Metric.CLUEF: compute_clue_f,
-    Metric.SCOPEPRF: compute_scope_prf,
+    Metric.SCOPEP: compute_scope_p,
+    Metric.SCOPER: compute_scope_r,
+    Metric.SCOPEF: compute_scope_f,
     Metric.PRF: compute_p_r_f_multi
 
 }
@@ -212,7 +229,7 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.CLUEF:
             metric = metric_func(predictions, golds, label_mapper)
-        elif mm == Metric.SCOPEPRF:
+        elif mm == Metric.SCOPEP or mm == Metric.SCOPER or mm == Metric.SCOPEF:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)

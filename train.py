@@ -22,6 +22,16 @@ from mt_dnn.batcher import SingleTaskDataset, MultiTaskDataset, Collater, MultiT
 from mt_dnn.model import MTDNNModel
 import test_config
 
+def bool_flag(s):
+    """
+    Parse boolean arguments from the command line.
+    """
+    if s.lower() in ['off', 'false', '0']:
+        return False
+    if s.lower() in ['on', 'true', '1']:
+        return True
+    raise argparse.ArgumentTypeError("invalid value for a boolean flag (0 or 1)")
+
 
 def model_config(parser):
     parser.add_argument('--update_bert_opt', default=0, type=int)
@@ -68,12 +78,12 @@ def data_config(parser):
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
     parser.add_argument("--init_checkpoint", default='', type=str)
     parser.add_argument('--data_dir',
-                        default='/home/mareike/PycharmProjects/negScope/data/formatted/bert-base-uncased_lower')
+                        default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/task_def.yml")
-    parser.add_argument('--train_datasets', default='sherlockenzerobio')
-    parser.add_argument('--test_datasets', default='sherlockenzerobio')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/iula_task_def.yml")
+    parser.add_argument('--train_datasets', default='iula')
+    parser.add_argument('--test_datasets', default='iula')
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
                         help=">0 to turn on knowledge distillation, requires 'softlabel' column in input data")
@@ -87,7 +97,8 @@ def train_config(parser):
     parser.add_argument('--log_per_updates', type=int, default=500)
     parser.add_argument('--save_per_updates', type=int, default=10000)
     parser.add_argument('--save_per_updates_on', action='store_true')
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--save_best_only', type=bool_flag, default=True)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--optimizer', default='adamax',
@@ -118,7 +129,7 @@ def train_config(parser):
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--bert_l2norm', type=float, default=0.0)
     parser.add_argument('--scheduler_type', type=str, default='ms', help='ms/rop/exp')
-    parser.add_argument('--output_dir', default='checkpoint')
+    parser.add_argument('--output_dir', default='checkpoint/scope')
     parser.add_argument('--seed', type=int, default=2018,
                         help='random seed for data shuffling, embedding init, etc.')
     parser.add_argument('--grad_accumulation_step', type=int, default=1)
@@ -153,6 +164,10 @@ pprint(args)
 os.makedirs(output_dir, exist_ok=True)
 output_dir = os.path.abspath(output_dir)
 
+if args.save_best_only:
+    best_model_dir = os.path.join(output_dir, 'best_model')
+    os.makedirs(best_model_dir, exist_ok=True)
+    best_model_dir = os.path.abspath(best_model_dir)
 set_environment(args.seed, args.cuda)
 log_path = args.log_file
 logger = create_logger(__name__, to_disk=True, log_file=log_path)
@@ -260,14 +275,14 @@ def main():
             raise ValueError("encoder_type is out of pre-defined types")
         literal_encoder_type = EncoderModelType(opt['encoder_type']).name.lower()
 
-        config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
-        config = config_class.from_pretrained(init_model).to_dict()
+        #config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
+        #config = config_class.from_pretrained(init_model).to_dict()
 
-    """
+
     state_dict = None
     config = test_config.test_config
     print(config)
-    """
+
     config['attention_probs_dropout_prob'] = args.bert_dropout_p
     config['hidden_dropout_prob'] = args.bert_dropout_p
     config['multi_gpu_on'] = opt["multi_gpu_on"]
@@ -306,7 +321,9 @@ def main():
                 encoding = extract_encoding(model, test_data, use_cuda=args.cuda)
             torch.save(encoding, os.path.join(output_dir, '{}_encoding.pt'.format(dataset)))
         return
-
+    best_score = 0.0
+    score = None
+    dev_metric = None
     for epoch in range(0, args.epochs):
         logger.warning('At epoch {}'.format(epoch))
         start = datetime.now()
@@ -333,6 +350,8 @@ def main():
         for idx, dataset in enumerate(args.test_datasets):
             prefix = dataset.split('_')[0]
             task_def = task_defs.get_task_def(prefix)
+            if idx == 0:
+                dev_metric = task_def.metric_meta[0].name
             label_dict = task_def.label_vocab
             dev_data = dev_data_list[idx]
             if dev_data is not None:
@@ -352,6 +371,10 @@ def main():
                         logger.warning('Task {0} -- epoch {1} -- Dev {2}: {3:.3f}'.format(dataset, epoch, key, val))
                 score_file = os.path.join(output_dir, '{}_dev_scores_{}.json'.format(dataset, epoch))
                 results = {'metrics': dev_metrics, 'predictions': dev_predictions, 'uids': dev_ids, 'scores': scores}
+                print(results['metrics'])
+                # track dev performance for the the first test task
+                if idx == 0:
+                    score = results['metrics'][dev_metric]
                 dump(score_file, results)
                 if args.glue_format_on:
                     from experiments.glue.glue_utils import submit
@@ -375,9 +398,15 @@ def main():
                     official_score_file = os.path.join(output_dir, '{}_test_scores_{}.tsv'.format(dataset, epoch))
                     submit(official_score_file, results, label_dict)
                 logger.info('[new test scores saved.]')
-
-        model_file = os.path.join(output_dir, 'model_{}.pt'.format(epoch))
-        model.save(model_file)
+        if args.save_best_only and score:
+            if score > best_score:
+                logger.info('new {} score {} > {}, saving model after epoch {} as best model to {}'.format(dev_metric, score, best_score, epoch, best_model_dir))
+                best_score = score
+                model_file = os.path.join(best_model_dir, 'model_best.pt')
+                model.save(model_file)
+        else:
+            model_file = os.path.join(output_dir, 'model_{}.pt'.format(epoch))
+            model.save(model_file)
     if args.tensorboard:
         tensorboard.close()
 
