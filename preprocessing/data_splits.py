@@ -57,17 +57,33 @@ def write_train_dev_test_data(fstem, data, setting):
 def write_train_dev_test_cue_data(fstem, data, split_idxs):
     for i, splt in enumerate(['train', 'dev', 'test']):
         out_data = []
+        # write another split that can be used for cue prediction, which has no 'CUE tokens'
+        out_data_filtered = []
         idxs = split_idxs[i]
         for uid, idx in enumerate(idxs):
             elm = data[idx]
+            seq = elm[1]
+            labels = ['1' if label.startswith('1') else '0' for label in elm[0] ]
             out_data.append({'uid': uid,
-                             'seq': elm[1],
-                             'labels': ['1' if label.startswith('1') else '0' for label in elm[0] ],
+                             'seq': seq,
+                             'labels': labels,
+                             'sid': '{}_{}'.format(uid, 0)
+                             })
+            filtered_seq = [seq[i] for i, elm in enumerate(seq) if elm != 'CUE']
+            filtered_labels = [labels[i] for i, elm in enumerate(seq) if elm != 'CUE']
+            assert len(filtered_seq) == len(filtered_labels)
+            out_data_filtered.append({'uid': uid,
+                             'seq': filtered_seq,
+                             'labels': filtered_labels,
                              'sid': '{}_{}'.format(uid, 0)
                              })
 
+
         write_split('{}#cues_{}.tsv'.format(fstem, splt), out_data)
+        write_split('{}nocues_{}.tsv'.format(fstem, splt), out_data_filtered)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}#cues_{}.tsv'.format(fstem, splt) ))
+
+
     return
 
 def write_train_dev_test_data_drugs(fstem, train_data, test_data):

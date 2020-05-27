@@ -1080,7 +1080,7 @@ def read_cdr(fname):
 
 
 def read_ade_doc(fname_txt, fname_ann):
-    import scispacy
+    #import scispacy
     import spacy
     nlp = spacy.load("en_core_web_sm")
 
@@ -1299,8 +1299,8 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['iula']
-    clues = set()
+    #datasets = ['iula', 'bio', ]
+
     # parse bioscope abstracts
     import configparser
 
@@ -1333,27 +1333,32 @@ if __name__=="__main__":
         elif ds == 'bioabstracts':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bio':
             data, cue_data = read_bioscope(config.get('Files', 'biofull'), setting=setting)
             data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'))
             data.extend(data_extension)
             cue_data.extend(cue_data_extension)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlocken':
             data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
 
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlockzh':
             data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'iula':
             data, cue_data = read_IULA(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfuen':
             data, cue_data = read_sfu_en(config.get('Files', ds), setting=setting)
 
@@ -1362,29 +1367,34 @@ if __name__=="__main__":
         elif ds == 'sfues':
             data, cue_data = read_sfu_es(config.get('Files', ds), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ddi':
             data_train, cue_data_train = read_ddi(config.get('Files', 'dditrain'), setting=setting)
             data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'), setting=setting)
             data = data_train + data_test
             cue_data = cue_data_train + cue_data_test
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'ita':
             data, cue_data = read_ita(config.get('Files', 'ita1'), setting=setting)
             data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'), setting=setting)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
             idxs =  write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'socc':
             data, cue_data = read_socc(config.get('Files', 'socc'), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'dtneg':
             data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
-            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'drugs':
             train_data = read_drugs(config.get('Files', 'drugstrain'), setting=setting)
             test_data = read_drugs(config.get('Files', 'drugstest'), setting=setting)
@@ -1422,9 +1432,9 @@ if __name__=="__main__":
                 read_ade_doc(os.path.join(config.get('Files', 'ade_train'), '{}.txt'.format(f)),
                              os.path.join(config.get('Files', 'ade_train'), '{}.ann'.format(f)))
                 break
-        print(clues)
-        for clue in clues:
-            print(clue)
+        #print(clues)
+        #for clue in clues:
+        #    print(clue)
 
 
 
