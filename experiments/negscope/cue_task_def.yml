@@ -1,114 +1,14 @@
-biofull#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-bioabstracts#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-bio#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-sherlocken#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-sherlockzh#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
 iula#cues:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
   enable_san: False
   labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
+  - "1"
+  - "0"
+  - "X"
+  - "SEP"
+  - "CLS"
   metric_meta:
   - CLUEF
   n_class: 5
@@ -118,123 +18,18 @@ iula#cues:
   - dev
   - test
   task_type: SeqenceLabeling
-sfuen#cues:
+iula#silvercues:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
   enable_san: False
   labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
+    - 1
+    - 0
   metric_meta:
-  - CLUEF
-  n_class: 5
+    - CLUEF
+  n_class: 2
   loss: SeqCeCriterion
   split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-sfues#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-ddi#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-ita#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-socc#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
-  task_type: SeqenceLabeling
-dtneg#cues:
-  data_format: Seqence
-  encoder_type: BERT
-  dropout_p: 0.3
-  enable_san: False
-  labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
-  metric_meta:
-  - CLUEF
-  n_class: 5
-  loss: SeqCeCriterion
-  split_names:
-  - train
-  - dev
-  - test
+    - test
   task_type: SeqenceLabeling
