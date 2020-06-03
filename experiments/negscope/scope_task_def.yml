@@ -1,16 +1,19 @@
-biofull:
+iula:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
   enable_san: False
   labels:
-  - O
-  - I
-  - X
-  - CLS
-  - SEP
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
   metric_meta:
-  - SCOPEPRF
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
   n_class: 5
   loss: SeqCeCriterion
   split_names:
@@ -18,3 +21,280 @@ biofull:
   - dev
   - test
   task_type: SeqenceLabeling
+  additional_features:
+  - sid
+bio:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+biofull:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+bioabstracts:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+ita:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+ddi:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+sherlocken:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+sherlockzh:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+sfuen:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+sfues:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+dtneg:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+socc:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
