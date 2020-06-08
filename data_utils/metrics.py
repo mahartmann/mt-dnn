@@ -153,8 +153,8 @@ def compute_clue_f(predicts, labels, label_mapper):
         y_pred.extend(predict)
 
     f = precision_recall_fscore_support(y_gold, y_pred, labels=['1','0'])
-    return 'P:{:.4f} R: {:.4f} F:{:.4f} Support: {}'.format(f[0][1], f[1][1], f[2][1], f[3][1])
-    #return f
+    #return 'P:{:.4f} R: {:.4f} F:{:.4f} Support: {}'.format(f[0][1], f[1][1], f[2][1], f[3][1])
+    return f[2][0]
 
 
 def compute_p_r_f_multi(predicts, labels, label_mapper):
