@@ -12,6 +12,7 @@ from data_utils.log_wrapper import create_logger
 from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
 from pretrained_models import *
+from train import bool_flag
 
 
 DEBUG_MODE = False
@@ -285,10 +286,10 @@ def parse_args():
                         help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
     parser.add_argument('--literal_model_type', type=str, default='bert',
                         help='the type of base model, e.g. bert or xlnet')
-
+    parser.add_argument('--json_format', type=bool_flag, default=False)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/negscope_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/udep_task_def.yml")
 
     args = parser.parse_args()
     return args
@@ -334,9 +335,9 @@ def main(args):
         for split_name in task_def.split_names:
             file_path = os.path.join(root, "%s_%s.tsv" % (task, split_name))
             if not os.path.exists(file_path):
-                logger.warning("File %s doesnot exit")
+                logger.warning("File %s doesnot exit"%file_path)
                 sys.exit(1)
-            rows = load_data(file_path, task_def)
+            rows = load_data(file_path, task_def, json_format=args.json_format)
             dump_path = os.path.join(mt_dnn_root, "%s_%s.json" % (task, split_name))
             logger.info(dump_path)
             build_data(
