@@ -132,6 +132,24 @@ def write_data_gad_format(fstem, train_data, test_data):
     return split_idxs
 
 
+def write_train_dev_udep(fstem, train_data):
+    split_idxs = generate_train_dev_splits(len(train_data))
+    for i, splt in enumerate(['train', 'dev']):
+        idxs = split_idxs[i]
+        out_data = []
+        for idx in idxs:
+            out_data.append([len(out_data)] +  train_data[idx])
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=False)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),
+                                                                           '{}_{}.tsv'.format(fstem, splt)))
+def shuffle_and_prepare(data, shuffle=True):
+        np.random.seed(42)
+        if shuffle:
+            np.random.shuffle(data)
+        out_data = []
+        for elm in data:
+            out_data.append([len(out_data)] + elm)
+        return out_data
 
 def write_split(fname, data, json_format=True):
     outlines = []

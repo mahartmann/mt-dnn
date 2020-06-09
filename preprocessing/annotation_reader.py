@@ -12,6 +12,8 @@ from spacy.matcher import Matcher
 from spacy.tokenizer import Tokenizer
 import ast
 
+from preprocessing import udep as udep
+from preprocessing.data_splits import write_train_dev_udep, shuffle_and_prepare
 
 def read_file(fname):
     with open(fname, 'r', encoding='utf-8') as f:
@@ -1281,6 +1283,8 @@ tid = line.split('\t')[0]
 
 
 
+
+
 def load_data_from_tsv(fname):
     data = []
     with open(fname) as f:
@@ -1299,7 +1303,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    #datasets = ['iula', 'bio', ]
+    datasets = ['udzh']
 
     # parse bioscope abstracts
     import configparser
@@ -1432,9 +1436,64 @@ if __name__=="__main__":
                 read_ade_doc(os.path.join(config.get('Files', 'ade_train'), '{}.txt'.format(f)),
                              os.path.join(config.get('Files', 'ade_train'), '{}.ann'.format(f)))
                 break
-        #print(clues)
-        #for clue in clues:
-        #    print(clue)
+        elif ds == 'uden':
+            train_data = []
+            dev_data = []
+            test_data = []
+            for d in ['udengum', 'udenlines', 'udenpartut']:
+                train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
+                dev_data.extend(udep.read_udep(fname=config.get('Files', d).format('dev'), ds=d))
+                test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
 
+
+            train_data_out = shuffle_and_prepare(train_data)
+            dev_data_out = shuffle_and_prepare(dev_data)
+            test_data_out = shuffle_and_prepare(test_data)
+
+            write_split(os.path.join(outpath, ds) + '_train.tsv', train_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_dev.tsv', dev_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_test.tsv', test_data_out, json_format=False)
+        elif ds == 'udes':
+            train_data = []
+            test_data = []
+            for d in ['udesgsd', 'udesancora']:
+                train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
+                test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
+
+            test_data_out = shuffle_and_prepare(test_data, shuffle=False)
+            write_train_dev_udep(os.path.join(outpath, ds), train_data)
+            write_split(os.path.join(outpath, ds) + '_test.tsv', test_data_out, json_format=False)
+        elif ds == 'udzh':
+            train_data = []
+            dev_data = []
+            test_data = []
+            for d in ['udzhgsd', 'udzhgsdsimp']:
+                train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
+                dev_data.extend(udep.read_udep(fname=config.get('Files', d).format('dev'), ds=d))
+                test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
+
+            train_data_out = shuffle_and_prepare(train_data)
+            dev_data_out = shuffle_and_prepare(dev_data)
+            test_data_out = shuffle_and_prepare(test_data)
+
+            write_split(os.path.join(outpath, ds) + '_train.tsv', train_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_dev.tsv', dev_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_test.tsv', test_data_out, json_format=False)
+        elif ds == 'udit':
+            train_data = []
+            dev_data = []
+            test_data = []
+            for d in ['uditisdt', 'uditpartut', 'uditpostwita', 'udittwittiro', 'uditvit']:
+                train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
+                dev_data.extend(udep.read_udep(fname=config.get('Files', d).format('dev'), ds=d))
+                test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
+
+            train_data_out = shuffle_and_prepare(train_data)
+            dev_data_out = shuffle_and_prepare(dev_data)
+            test_data_out = shuffle_and_prepare(test_data)
+
+            write_split(os.path.join(outpath, ds) + '_train.tsv', train_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_dev.tsv', dev_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_test.tsv', test_data_out, json_format=False)
 
 

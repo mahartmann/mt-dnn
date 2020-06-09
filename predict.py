@@ -33,17 +33,17 @@ parser.add_argument("--task", type=str, default='biofull')
 parser.add_argument("--task_id", type=int, help="the id of this task when training")
 
 parser.add_argument("--prep_input", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/biofull#silvercues_train.json")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/iula_test.json")
 #parser.add_argument("--outfile", type=str,
 #                        default="/home/mareike/PycharmProjects/negscope/data/formatted/biofull#silvercues_train.tsv")
-parser.add_argument("--with_label", type=bool_flag, default=False )
+parser.add_argument("--with_label", type=bool_flag, default=True)
 parser.add_argument("--score", type=str, help="score output path", default='tmp')
 
 parser.add_argument('--max_seq_len', type=int, default=512)
 parser.add_argument('--batch_size_eval', type=int, default=8)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-parser.add_argument("--checkpoint", default='checkpoint/310df1bd-4f2f-48db-a3c7-b1a07f678844/model_4.pt', type=str)
+parser.add_argument("--checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/model_best.pt', type=str)
 
 
 
@@ -65,6 +65,7 @@ for key in task_def.label_vocab:
 print(task_def.label_vocab)
 # load model
 checkpoint_path = args.checkpoint
+print(checkpoint_path)
 assert os.path.exists(checkpoint_path)
 if args.cuda:
     state_dict = torch.load(checkpoint_path)

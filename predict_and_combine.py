@@ -63,7 +63,7 @@ def main(args):
     model.load(checkpoint_path)
 
     #tokenizer = BertTokenizer.from_pretrained(model.config['bert_model_type'])
-    tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
     encoder_type = config.get('encoder_type', EncoderModelType.BERT)
 
     test_data_set = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id, task_def=task_def)
@@ -106,6 +106,7 @@ def main(args):
 
                 replace_labels = set([label_map[l] for l in ['CLS', 'SEP', 'X']])
                 default_label = label_map['O']
+
                 filtered_toks, filtered_labels = rejoin_subwords(filtered_toks, filtered_labels, replace_labels, default_label)
                 assert len(filtered_toks) == len(filtered_labels)
                 out_labels.append(filtered_labels)
@@ -249,7 +250,7 @@ if __name__=="__main__":
     parser.add_argument("--prep_input", type=str,
                         default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/iulanocues_test.json")
     parser.add_argument("--outfile", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/iulasilvercue_test.tsv")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/iulanocussilvercue_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
     parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='cue')
@@ -257,6 +258,6 @@ if __name__=="__main__":
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-    parser.add_argument("--checkpoint", default='checkpoint/scope/74ad6ba6-ced4-4649-9997-95338d2c8c9e/model_4.pt', type=str)
+    parser.add_argument("--checkpoint", default='checkpoint/cue/07b36003-16d1-4e83-83bb-c4b32e677c3e/best_model/model_best.pt', type=str)
     args = parser.parse_args()
     main(args)

@@ -81,8 +81,8 @@ def data_config(parser):
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/iula_task_def.yml")
-    parser.add_argument('--train_datasets', default='iula')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/scope_task_def.yml")
+    parser.add_argument('--train_datasets', default='iula,udes')
     parser.add_argument('--test_datasets', default='iula')
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
@@ -129,7 +129,7 @@ def train_config(parser):
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--bert_l2norm', type=float, default=0.0)
     parser.add_argument('--scheduler_type', type=str, default='ms', help='ms/rop/exp')
-    parser.add_argument('--output_dir', default='checkpoint/scope')
+    parser.add_argument('--output_dir', default='checkpoint/cue')
     parser.add_argument('--seed', type=int, default=2018,
                         help='random seed for data shuffling, embedding init, etc.')
     parser.add_argument('--grad_accumulation_step', type=int, default=1)
@@ -387,7 +387,7 @@ def main():
                 with torch.no_grad():
                     test_metrics, test_predictions, scores, golds, test_ids= eval_model(model, test_data,
                                                                                         metric_meta=task_def.metric_meta,
-                                                                                        use_cuda=args.cuda, with_label=False,
+                                                                                        use_cuda=args.cuda, with_label=True,
                                                                                         label_mapper=label_dict,
                                                                                         task_type=task_def.task_type)
                 score_file = os.path.join(output_dir, '{}_test_scores_{}.json'.format(dataset, epoch))
