@@ -166,10 +166,21 @@ class MTDNNModel(object):
                 weight = batch_data[batch_meta['factor']].cuda(non_blocking=True)
             else:
                 weight = batch_data[batch_meta['factor']]
-        logits = self.mnetwork(*inputs)
+
+        assert batch_meta['task_id'] == task_id
+        inputs_as_dict= {'input_ids': inputs[batch_meta['token_id']],
+                         'token_type_ids': inputs[batch_meta['segment_id']],
+                         'attention_mask': inputs[batch_meta['mask']],
+                         'task_id': task_id
+        }
+        #if 'additional_features' in batch_meta:
+        inputs_as_dict['additional_features'] = None#inputs[batch_meta['additional_features']]
+        logits = self.mnetwork(**inputs_as_dict)
 
         # compute loss
         loss = 0
+
+
         if self.task_loss_criterion[task_id] and (y is not None):
             loss = self.task_loss_criterion[task_id](logits, y, weight, ignore_index=-1)
 

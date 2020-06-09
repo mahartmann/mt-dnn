@@ -163,8 +163,8 @@ def compute_p_r_f_multi(predicts, labels, label_mapper):
     for key, val in label_mapper.tok2ind.items():
         label_strings.append(key)
         label_idxs.append(val)
-    f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings)
-    return f
+    f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
+    return f['macro avg']['f1-score']
 
 
 def compute_emf1(predicts, labels):

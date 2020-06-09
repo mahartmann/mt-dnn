@@ -96,6 +96,8 @@ class SANBertNetwork(nn.Module):
             else: self.additional_input_features_list.append(None)
 
             if task_obj is not None:
+                print('Task obj for {} not None'.format(task_id))
+                print('Setting out proj as with dec_opt {}, hid {}, lab {}'.format(decoder_opt,hidden_size,lab))
                 out_proj = task_obj.train_build_task_layer(decoder_opt, hidden_size, lab, opt, prefix='answer', dropout=dropout)
             elif task_type == TaskType.Span:
                 assert decoder_opt != 1
@@ -151,7 +153,7 @@ class SANBertNetwork(nn.Module):
         self.apply(init_weights)
 
     def encode(self, task_id, input_ids, token_type_ids, attention_mask, additional_features):
-        if len(additional_features) == 0 :
+        if additional_features is None:
             outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask)
         else:
@@ -167,7 +169,7 @@ class SANBertNetwork(nn.Module):
         pooled_output = outputs[1]
         return sequence_output, pooled_output
 
-    def forward(self, input_ids, token_type_ids, attention_mask, additional_features=None, premise_mask=None, hyp_mask=None, task_id=0):
+    def forward(self, input_ids, token_type_ids, attention_mask,  premise_mask=None, hyp_mask=None, task_id=0, additional_features=None):
         sequence_output, pooled_output = self.encode(task_id, input_ids, token_type_ids, attention_mask, additional_features=additional_features)
 
         decoder_opt = self.decoder_opt[task_id]
@@ -185,6 +187,7 @@ class SANBertNetwork(nn.Module):
             end_scores = end_scores.squeeze(-1)
             return start_scores, end_scores
         elif task_type == TaskType.SeqenceLabeling:
+
             pooled_output = sequence_output
             pooled_output = self.dropout_list[task_id](pooled_output)
             pooled_output = pooled_output.contiguous().view(-1, pooled_output.size(2))
