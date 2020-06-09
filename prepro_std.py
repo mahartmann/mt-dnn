@@ -12,7 +12,17 @@ from data_utils.log_wrapper import create_logger
 from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
 from pretrained_models import *
-from train import bool_flag
+
+
+def bool_flag(s):
+    """
+    Parse boolean arguments from the command line.
+    """
+    if s.lower() in ['off', 'false', '0']:
+        return False
+    if s.lower() in ['on', 'true', '1']:
+        return True
+    raise argparse.ArgumentTypeError("invalid value for a boolean flag (0 or 1)")
 
 
 DEBUG_MODE = False
