@@ -780,8 +780,180 @@ def read_ita_doc(fname, setting):
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
+    return data, cue_data
 
+def read_nubes(pname, setting='augment'):
+    data = []
+    cue_data = []
+    for i in range(1, 10):
+        ddir = os.path.join(pname, 'SAMPLE-00{}'.format(i))
+        for f in os.listdir(ddir):
+            if f.endswith('.ann'):
+                fstem  = os.path.join(ddir, f.strip('.ann'))
+                data_ex, cue_data_ex = read_nubes_doc(fstem+ '.txt', fstem + '.ann', setting=setting)
+                data.extend(data_ex)
+                cue_data.extend(cue_data_ex)
+    return data, cue_data
 
+def read_nubes_doc(fname_txt, fname_anno, setting):
+    class Token(object):
+        def __init__(self, start, end, surf, tid):
+            self.c_start = start
+            self.c_end = end
+            self.surface = surf
+            self.tid = tid
+
+        def set_label(self, label):
+            self.label = label
+
+    data = []
+    cue_data = []
+    tid2tok = {}
+    span2tok = {}
+
+    anno_lines = read_file(fname_anno)
+
+    def read_anno_file(fname):
+        with open(fname, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        sentence_markers = []
+        outlines = ''
+        for line in lines:
+            outlines += line.strip() + ' '
+            sentence_markers.append(len(outlines) - 1)
+        return outlines[:-1], sentence_markers
+
+    s, sentence_markers = read_anno_file(fname_txt)
+
+    labels = set()
+    annos = {}
+    for line in anno_lines:
+        splt = line.split('\t')
+        labels.add(splt[1].split()[0])
+        annos.setdefault(splt[1].split()[0], []).append(line)
+
+    for line in anno_lines:
+        splt = line.split('\t')[1]
+
+        if line.split('\t')[0].startswith('T'):
+            gold_surf = line.split('\t')[-1].strip()
+
+            start_orig = int(splt.split(' ')[1])
+            end_orig = int(splt.split(' ')[2])
+            start = start_orig
+            end = end_orig
+            surf = s[start:end]
+
+            assert gold_surf == s[start:end]
+            tid = line.split('\t')[0]
+            label = splt.split()[0]
+            tok = Token(start, end, surf, tid)
+
+            tok.set_label(label)
+            tid2tok[tid] = tok
+            span2tok.setdefault(start, []).append(tok)
+            for st in range(start, end):
+                span2tok.setdefault(st, []).append(tok)
+
+    span2r = {}
+    for line in anno_lines:
+
+        if line.split('\t')[0].startswith('R'):
+            splt = line.split('\t')[1].split()
+            rid = line.split('\t')[0]
+            label = line.split('\t')[1].split()[0]
+            for elm in splt:
+                if ':' in elm:
+                    span = (tid2tok[elm.split(':')[-1]].c_start, tid2tok[elm.split(':')[-1]].c_end)
+                    span2r.setdefault(tid2tok[elm.split(':')[-1]].c_start, []).append((span, elm, rid, label))
+                    for st in range(tid2tok[elm.split(':')[-1]].c_start, tid2tok[elm.split(':')[-1]].c_end):
+                        span2r.setdefault(st, []).append(((st, tid2tok[elm.split(':')[-1]].c_end), elm, rid, label))
+
+    i = 0
+    surf2span = []
+    chars = []
+    while i < len(s) - 1:
+
+        # add chars up to next whitespace
+        c = s[i]
+        start = i
+        while i < len(s) - 1:
+            if c == ' ':
+                i += 1
+                c = s[i]
+                break
+            chars.append(c)
+            i += 1
+            c = s[i]
+
+        surf2span.append((''.join(chars), start))
+        chars = []
+    sents = []
+    sent = []
+    sentence_markers = set(sentence_markers)
+    for surf, span in surf2span:
+        if span + 1 in sentence_markers:
+            sent.append((surf.strip('\n'), span))
+            sents.append(sent)
+            sent = []
+        else:
+            sent.append((surf, span))
+
+    for sent in sents:
+
+        tok2labels = []
+
+        for surf, span in sent:
+
+            if surf != '':
+                labels = []
+                if span in span2r:
+                    labels.extend(['{}:{}:{}'.format(elm[3], elm[1], elm[2]) for elm in span2r[span]])
+
+                if span in span2tok:
+                    labels.extend(['{}:_{}'.format(elm.tid, elm.label) for elm in span2tok[span]])
+                else:
+                    labels.append('Unlabeled')
+                tok2labels.append((surf, set(labels)))
+        print(tok2labels)
+        sent_labels = set()
+        for _, labels in tok2labels:
+            for label in labels:
+                if label.split(':')[-1].startswith('R'):
+                    sent_labels.add(label.split(':')[-1])
+        sent_data = []
+        for sent_label in sent_labels:
+            print('\n')
+            print(sent_label)
+            out_toks = []
+            out_labels = []
+            cue_labelseq = []
+            for tok, labels in tok2labels:
+                is_cue = 0
+
+                def tok2sent_labels(labels):
+                    return set([label.split(':')[-1] for label in labels if label.split(':')[-1].startswith('R')])
+
+                if sent_label in tok2sent_labels(labels):
+                    out_label = 'I'
+                    print('{}\t{}'.format(tok, labels))
+                    if len([elm for elm in labels if 'NegSynMarker' in elm or 'NegLexMarker' in elm or 'NegMorMarker' in elm]) > 0:
+                        is_cue = 1
+                        if setting == 'augment':
+                            out_toks.append('CUE')
+                            out_labels.append(out_label)
+                            cue_labelseq.append(is_cue)
+                else:
+                    out_label = 'O'
+                    print('{}\tUnlabeled'.format(tok))
+                out_toks.append(tok)
+                out_labels.append(out_label)
+                cue_labelseq.append(is_cue)
+
+            sent_data.append([out_labels, out_toks, cue_labelseq])
+        if len(sent_data) > 0:
+            data.append(sent_data)
+            cue_data.append(get_clue_annotated_data(sent_data))
     return data, cue_data
 
 
@@ -1303,7 +1475,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['udzh']
+    datasets = ['nubes']
 
     # parse bioscope abstracts
     import configparser
@@ -1396,6 +1568,11 @@ if __name__=="__main__":
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'dtneg':
             data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'nubes':
+            data, cue_data = read_nubes(config.get('Files', 'nubes'), setting=setting)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)

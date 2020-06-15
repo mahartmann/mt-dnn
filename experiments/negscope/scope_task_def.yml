@@ -1,3 +1,20 @@
+udes:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - '0'
+  - '1'
+  metric_meta:
+  - PRF
+  n_class: 2
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
 iula:
   data_format: Seqence
   encoder_type: BERT
@@ -21,8 +38,29 @@ iula:
   - dev
   - test
   task_type: SeqenceLabeling
-  additional_features:
-  - sid
+nubes:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
 bio:
   data_format: Seqence
   encoder_type: BERT
