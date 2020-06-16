@@ -98,6 +98,7 @@ def train_config(parser):
     parser.add_argument('--save_per_updates', type=int, default=10000)
     parser.add_argument('--save_per_updates_on', action='store_true')
     parser.add_argument('--save_best_only', type=bool_flag, default=True)
+    parser.add_argument('--debug', type=bool_flag, default=True, help='enable debug mode')
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--batch_size_eval', type=int, default=8)
@@ -361,7 +362,8 @@ def main():
                                                                                     metric_meta=task_def.metric_meta,
                                                                                     use_cuda=args.cuda,
                                                                                     label_mapper=label_dict,
-                                                                                    task_type=task_def.task_type)
+                                                                                    task_type=task_def.task_type,
+                                                                                     debug=args.debug)
                 for key, val in dev_metrics.items():
                     if args.tensorboard:
                         tensorboard.add_scalar('dev/{}/{}'.format(dataset, key), val, global_step=epoch)
