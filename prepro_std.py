@@ -159,7 +159,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                             labels.append(sample['label'][i])
                         else:
                             labels.append(label_mapper['X'])
-                if len(premise) >  max_seq_len - 2:
+                if len(tokens) >  max_seq_len - 2:
                     tokens = tokens[:max_seq_len - 2]
                     labels = labels[:max_seq_len - 2]
 
@@ -190,7 +190,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                         else:
                             labels.append(label_mapper['X'])
                             additional_features.append({additional_features_id: sample[additional_features_id][i] for additional_features_id in additional_features_ids if additional_features_id!= 'sid'})
-                if len(premise) > max_seq_len - 2:
+                if len(tokens) > max_seq_len - 2:
                     tokens = tokens[:max_seq_len - 2]
                     labels = labels[:max_seq_len - 2]
                     additional_features = additional_features[:max_seq_len - 2]
@@ -203,6 +203,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 
                 input_ids = tokenizer.convert_tokens_to_ids([tokenizer.cls_token] + tokens + [tokenizer.sep_token])
                 assert len(label) == len(input_ids) == len(additional_features)
+                assert len(input_ids) <= max_seq_len
                 type_ids = [0] * len(input_ids)
                 features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids}
 
@@ -292,14 +293,14 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Preprocessing GLUE/SNLI/SciTail dataset.')
-    parser.add_argument('--model', type=str, default='bert-base-cased',
+    parser.add_argument('--model', type=str, default='bert-base-multilingual-cased',
                         help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
     parser.add_argument('--literal_model_type', type=str, default='bert',
                         help='the type of base model, e.g. bert or xlnet')
-    parser.add_argument('--json_format', type=bool_flag, default=False)
+    parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/udep_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/nubes_task_def.yml")
 
     args = parser.parse_args()
     return args
