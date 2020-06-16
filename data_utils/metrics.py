@@ -166,6 +166,15 @@ def compute_p_r_f_multi(predicts, labels, label_mapper):
     f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
     return f['macro avg']['f1-score']
 
+def compute_p_r_f_multi_report(predicts, labels, label_mapper):
+    label_strings = []
+    label_idxs = []
+    for key, val in label_mapper.tok2ind.items():
+        label_strings.append(key)
+        label_idxs.append(val)
+    f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
+    return f
+
 
 def compute_emf1(predicts, labels):
     return evaluate_func(labels, predicts)
@@ -188,6 +197,7 @@ class Metric(Enum):
     SCOPER = 14
     SCOPEF = 15
     PRF = 16
+    PRFReport = 17
 
 
 
@@ -208,7 +218,8 @@ METRIC_FUNC = {
     Metric.SCOPEP: compute_scope_p,
     Metric.SCOPER: compute_scope_r,
     Metric.SCOPEF: compute_scope_f,
-    Metric.PRF: compute_p_r_f_multi
+    Metric.PRF: compute_p_r_f_multi,
+    Metric.PRFReport: compute_p_r_f_multi_report
 
 }
 
@@ -234,6 +245,8 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
         elif mm == Metric.PRF:
+            metric = metric_func(predictions, golds, label_mapper)
+        elif mm == Metric.PRFReport:
             metric = metric_func(predictions, golds, label_mapper)
         else:
             if mm == Metric.AUC:

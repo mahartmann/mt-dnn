@@ -81,9 +81,9 @@ def data_config(parser):
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/scope_task_def.yml")
-    parser.add_argument('--train_datasets', default='iula,udes')
-    parser.add_argument('--test_datasets', default='iula')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugs_task_def.yml")
+    parser.add_argument('--train_datasets', default='drugss')
+    parser.add_argument('--test_datasets', default='drugss')
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
                         help=">0 to turn on knowledge distillation, requires 'softlabel' column in input data")
@@ -94,7 +94,7 @@ def data_config(parser):
 def train_config(parser):
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-    parser.add_argument('--log_per_updates', type=int, default=500)
+    parser.add_argument('--log_per_updates', type=int, default=100)
     parser.add_argument('--save_per_updates', type=int, default=10000)
     parser.add_argument('--save_per_updates_on', action='store_true')
     parser.add_argument('--save_best_only', type=bool_flag, default=True)
@@ -366,6 +366,8 @@ def main():
                     if args.tensorboard:
                         tensorboard.add_scalar('dev/{}/{}'.format(dataset, key), val, global_step=epoch)
                     if isinstance(val, str):
+                        logger.warning('Task {0} -- epoch {1} -- Dev {2}:\n {3}'.format(dataset, epoch, key, val))
+                    elif isinstance(val, dict):
                         logger.warning('Task {0} -- epoch {1} -- Dev {2}:\n {3}'.format(dataset, epoch, key, val))
                     else:
                         logger.warning('Task {0} -- epoch {1} -- Dev {2}: {3:.3f}'.format(dataset, epoch, key, val))

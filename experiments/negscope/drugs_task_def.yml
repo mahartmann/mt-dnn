@@ -9,6 +9,7 @@ drugs:
     - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 3
   loss: CeCriterion
   split_names:

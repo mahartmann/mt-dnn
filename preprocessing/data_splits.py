@@ -97,13 +97,13 @@ def write_train_dev_test_data_drugs(fstem, train_data, test_data):
         out_data = []
         for idx in idxs:
             out_data.append([len(out_data), train_data[idx]['rating'], train_data[idx]['review']])
-        write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=False)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
     out_data = []
     splt = 'test'
     for elm in test_data:
         out_data.append([len(out_data), elm['rating'], elm['review']])
-    write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+    write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=False)
     print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
                                                                            '{}_{}.tsv'.format(fstem, splt)))
     return split_idxs

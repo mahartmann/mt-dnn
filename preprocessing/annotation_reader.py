@@ -949,8 +949,9 @@ def read_nubes_doc(fname_txt, fname_anno, setting):
                 out_toks.append(tok)
                 out_labels.append(out_label)
                 cue_labelseq.append(is_cue)
-
-            sent_data.append([out_labels, out_toks, cue_labelseq])
+            # check if there is at least one CUE in the data, otherwise don;t add. This is to filter out scopes of uncertainty cues
+            if len(set(cue_labelseq)) > 1:
+                sent_data.append([out_labels, out_toks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
@@ -1112,7 +1113,17 @@ def read_drugs(fname, setting=None):
         data = []
         for row in reader:
             review = row['review'].strip().replace('\t', ' ').replace('\n', ' ').replace('\r', ' ').replace('&#039;', "'").strip('"')
-            data.append({'rid': row[''].strip(), 'rating': row['rating'].strip(), 'review': review})
+
+            def convert_rating(rating):
+                if rating >= 7:
+                    return 1
+                elif rating <= 4:
+                    return -1
+                else:
+                    return 0
+            rating = convert_rating(float(row['rating'].strip()))
+
+            data.append({'rid': row[''].strip(), 'rating':rating, 'review': review})
     return data
 
 
@@ -1475,7 +1486,7 @@ if __name__=="__main__":
                 'ddi', 'ita', 'socc', 'dtneg']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['nubes']
+    datasets = ['drugs']
 
     # parse bioscope abstracts
     import configparser
