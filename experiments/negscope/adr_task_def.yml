@@ -4,10 +4,11 @@ adr1:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -21,10 +22,11 @@ adr2:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -38,10 +40,11 @@ adr3:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -55,10 +58,11 @@ adr4:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -72,10 +76,11 @@ adr5:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -89,10 +94,11 @@ adr6:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -106,10 +112,11 @@ adr7:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -123,10 +130,11 @@ adr8:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -140,10 +148,11 @@ adr9:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
@@ -157,10 +166,11 @@ adr10:
   dropout_p: 0.3
   enable_san: False
   labels:
-  - 0
-  - 1
+  - '0'
+  - '1'
   metric_meta:
   - PRF
+  - PRFReport
   n_class: 2
   loss: CeCriterion
   split_names:
