@@ -154,8 +154,10 @@ class SANBertNetwork(nn.Module):
 
     def encode(self, task_id, input_ids, token_type_ids, attention_mask, additional_features):
         if additional_features is None:
+
             outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask)
+
         else:
             # get embeddings
             bert_embeddings = self.bert.embeddings(input_ids=input_ids, token_type_ids=token_type_ids)

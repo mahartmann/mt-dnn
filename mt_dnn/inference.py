@@ -24,7 +24,7 @@ def extract_encoding(model, data, use_cuda=True):
 
     return torch.cat(new_sequence_outputs)
 
-def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_mapper=None, task_type=TaskType.Classification, debug=False):
+def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_mapper=None, task_type=TaskType.Classification):
     if use_cuda:
         model.cuda()
     predictions = []
@@ -36,9 +36,7 @@ def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_m
 
         if idx % 100 == 0:
             print("predicting {}".format(idx))
-        if debug:
-            print(batch_info)
-            print(batch_data)
+
         batch_info, batch_data = Collater.patch_data(use_cuda, batch_info, batch_data)
         score, pred, gold = model.predict(batch_info, batch_data)
         predictions.extend(pred)

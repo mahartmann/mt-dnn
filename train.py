@@ -76,14 +76,17 @@ def data_config(parser):
     parser.add_argument('--log_file', default='mt-dnn-train.log', help='path for log file.')
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
-    parser.add_argument("--init_checkpoint", default='', type=str)
+
+    parser.add_argument("--init_checkpoint", default='test_config', type=str)
     parser.add_argument('--data_dir',
-                        default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased')
+                        default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugs_task_def.yml")
-    parser.add_argument('--train_datasets', default='drugss')
-    parser.add_argument('--test_datasets', default='drugss')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/adr_task_def.yml")
+    parser.add_argument('--train_datasets', default='adr1')
+    parser.add_argument('--test_datasets', default='adr1')
+    parser.add_argument('--load_intermed', default=True, type=bool_flag)
+
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
                         help=">0 to turn on knowledge distillation, requires 'softlabel' column in input data")
@@ -98,7 +101,7 @@ def train_config(parser):
     parser.add_argument('--save_per_updates', type=int, default=10000)
     parser.add_argument('--save_per_updates_on', action='store_true')
     parser.add_argument('--save_best_only', type=bool_flag, default=True)
-    parser.add_argument('--debug', type=bool_flag, default=True, help='enable debug mode')
+    parser.add_argument('--debug', type=bool_flag, default=False, help='enable debug mode')
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--batch_size_eval', type=int, default=8)
@@ -119,8 +122,8 @@ def train_config(parser):
     parser.add_argument('--bert_dropout_p', type=float, default=0.1)
 
     # loading
-    parser.add_argument("--model_ckpt", default='checkpoints/model_0.pt', type=str)
-    parser.add_argument("--resume", action='store_true')
+    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/model_best.pt', type=str)
+    parser.add_argument("--resume", type=bool_flag, default=False)
 
     # scheduler
     parser.add_argument('--have_lr_scheduler', dest='have_lr_scheduler', action='store_false')
@@ -130,7 +133,7 @@ def train_config(parser):
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--bert_l2norm', type=float, default=0.0)
     parser.add_argument('--scheduler_type', type=str, default='ms', help='ms/rop/exp')
-    parser.add_argument('--output_dir', default='checkpoint/cue')
+    parser.add_argument('--output_dir', default='checkpoint/ds')
     parser.add_argument('--seed', type=int, default=2018,
                         help='random seed for data shuffling, embedding init, etc.')
     parser.add_argument('--grad_accumulation_step', type=int, default=1)
@@ -261,37 +264,47 @@ def main():
     init_model = args.init_checkpoint
     state_dict = None
 
-    if os.path.exists(init_model):
-        _state_dict = torch.load(init_model)
-        if not 'config' in _state_dict:
-            cfg = load_json(args.pretrained_model_config)
-            state_dict = {'state':_state_dict, 'config':cfg}
-
-        else:
-            state_dict = _state_dict
-
-        config = state_dict['config']
+    if init_model == 'test_config':
+        config = test_config.test_config
+        args.load_intermed = False
     else:
-        if opt['encoder_type'] not in EncoderModelType._value2member_map_:
-            raise ValueError("encoder_type is out of pre-defined types")
-        literal_encoder_type = EncoderModelType(opt['encoder_type']).name.lower()
+        if os.path.exists(init_model):
 
-        #config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
-        #config = config_class.from_pretrained(init_model).to_dict()
+            _state_dict = torch.load(init_model)
+            if not 'config' in _state_dict:
+                cfg = load_json(args.pretrained_model_config)
+                state_dict = {'state':_state_dict, 'config':cfg}
+
+            else:
+                state_dict = _state_dict
+
+            config = state_dict['config']
+        else:
+            if opt['encoder_type'] not in EncoderModelType._value2member_map_:
+                raise ValueError("encoder_type is out of pre-defined types")
+            literal_encoder_type = EncoderModelType(opt['encoder_type']).name.lower()
+
+            config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_encoder_type]
+            config = config_class.from_pretrained(init_model).to_dict()
 
 
-    state_dict = None
-    config = test_config.test_config
-    print(config)
+
 
     config['attention_probs_dropout_prob'] = args.bert_dropout_p
     config['hidden_dropout_prob'] = args.bert_dropout_p
     config['multi_gpu_on'] = opt["multi_gpu_on"]
     if args.num_hidden_layers != -1:
         config['num_hidden_layers'] = args.num_hidden_layers
-    opt.update(config)
 
+    config['resume'] = args.resume
+    config['model_ckpt'] = args.model_ckpt
+
+    #opt.update(config)
+    for key, val in config.items():
+        if key not in opt:
+            opt[key] = val
     model = MTDNNModel(opt, state_dict=state_dict, num_train_step=num_all_batches)
+
     if args.resume and args.model_ckpt:
         logger.info('loading model from {}'.format(args.model_ckpt))
         model.load(args.model_ckpt)
@@ -363,7 +376,7 @@ def main():
                                                                                     use_cuda=args.cuda,
                                                                                     label_mapper=label_dict,
                                                                                     task_type=task_def.task_type,
-                                                                                     debug=args.debug)
+                                                                                    )
                 for key, val in dev_metrics.items():
                     if args.tensorboard:
                         tensorboard.add_scalar('dev/{}/{}'.format(dataset, key), val, global_step=epoch)

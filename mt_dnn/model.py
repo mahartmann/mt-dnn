@@ -30,6 +30,17 @@ class MTDNNModel(object):
         self.initial_from_local = True if state_dict else False
 
         self.network = SANBertNetwork(opt, initial_from_local=self.initial_from_local)
+
+        if opt['load_intermed'] is True:
+            # Load everything except the scoring layers which we initialize randomly
+            logger.info('Removing scoring layers from state dict')
+            new_state_dict = {'state':{}}
+            for key, val in state_dict['state'].items():
+                if not key.startswith('scoring'):
+                    new_state_dict['state'][key] = val
+
+            # reset optimizer states
+            state_dict = new_state_dict
         if state_dict:
             missing_keys, unexpected_keys = self.network.load_state_dict(state_dict['state'], strict=False)
         self.mnetwork = nn.DataParallel(self.network) if opt['multi_gpu_on'] else self.network
@@ -217,7 +228,6 @@ class MTDNNModel(object):
     def encode(self, batch_meta, batch_data):
         self.network.eval()
         inputs = batch_data[:3]
-        print(inputs)
         sequence_output = self.network.encode(*inputs)[0]
         return sequence_output
 
@@ -241,7 +251,9 @@ class MTDNNModel(object):
             inputs.append(None)
             inputs.append(None)
         inputs.append(task_id)
+
         score = self.mnetwork(*inputs)
+
         if task_obj is not None:
             score, predict = task_obj.test_predict(score)
         elif task_type == TaskType.Ranking:
@@ -279,6 +291,7 @@ class MTDNNModel(object):
         else:
             raise ValueError("Unknown task_type: %s" % task_type)
         return score, predict, batch_meta['label']
+
 
     def save(self, filename):
         network_state = dict([(k, v.cpu()) for k, v in self.network.state_dict().items()])
