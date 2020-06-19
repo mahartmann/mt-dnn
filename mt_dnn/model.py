@@ -33,35 +33,60 @@ class MTDNNModel(object):
 
         if opt['load_intermed'] is True:
             # Load everything except the scoring layers which we initialize randomly
-            logger.info('Removing scoring layers from state dict')
+            print('Removing scoring layers in state dict')
+            logger.info('Removing scoring layers in state dict')
             new_state_dict = {'state':{}}
             for key, val in state_dict['state'].items():
                 if not key.startswith('scoring'):
                     new_state_dict['state'][key] = val
-
-            # reset optimizer states
             state_dict = new_state_dict
+
+            """
+            logger.info('Renaming scoring layers in state dict')
+            new_state_state_dict = {}
+            for key, val in state_dict['state'].items():
+                if key.startswith('scoring'):
+                    key = key.replace('scoring', 'oldscoring')
+                    new_state_state_dict[key] = val
+                else:
+                    new_state_state_dict[key] = val
+            # reset optimizer states
+            print('optim: {}'.format(state_dict['optimizer']['param_groups']))
+            print('optim len: {}'.format(len(state_dict['optimizer']['param_groups'])))
+            for elm in state_dict['optimizer']['param_groups']:
+                print(elm)
+            state_dict['state'] = new_state_state_dict
+            """
         if state_dict:
             missing_keys, unexpected_keys = self.network.load_state_dict(state_dict['state'], strict=False)
         self.mnetwork = nn.DataParallel(self.network) if opt['multi_gpu_on'] else self.network
         self.total_param = sum([p.nelement() for p in self.network.parameters() if p.requires_grad])
         if opt['cuda']:
             self.network.cuda()
-        optimizer_parameters = self._get_param_groups()
+        optimizer_parameters = self._get_param_groups(remove_scoring_layer=opt['load_intermed'])
+
         self._setup_optim(optimizer_parameters, state_dict, num_train_step)
         self.para_swapped = False
         self.optimizer.zero_grad()
         self._setup_lossmap(self.config)
         self._setup_kd_lossmap(self.config)
 
-    def _get_param_groups(self):
+    def _get_param_groups(self, remove_scoring_layer):
         no_decay = ['bias', 'gamma', 'beta', 'LayerNorm.bias', 'LayerNorm.weight']
-        optimizer_parameters = [
-            {'params': [p for n, p in self.network.named_parameters() if not any(nd in n for nd in no_decay)],
-             'weight_decay': 0.01},
-            {'params': [p for n, p in self.network.named_parameters() if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0}
-        ]
+        if not remove_scoring_layer:
+            optimizer_parameters = [
+                {'params': [p for n, p in self.network.named_parameters() if not any(nd in n for nd in no_decay)],
+                 'weight_decay': 0.01},
+                {'params': [p for n, p in self.network.named_parameters() if any(nd in n for nd in no_decay)],
+                 'weight_decay': 0.0}
+            ]
+        else:
+            optimizer_parameters = [
+                {'params': [p for n, p in self.network.named_parameters() if not any(nd in n for nd in no_decay) and not n.startswith('scoring')],
+                 'weight_decay': 0.01},
+                {'params': [p for n, p in self.network.named_parameters() if any(nd in n for nd in no_decay) and not n.startswith('scoring')],
+                 'weight_decay': 0.0}
+            ]
         return optimizer_parameters
 
     def _setup_optim(self, optimizer_parameters, state_dict=None, num_train_step=-1):
