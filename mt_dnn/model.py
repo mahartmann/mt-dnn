@@ -21,6 +21,7 @@ from experiments.exp_def import TaskDef
 logger = logging.getLogger(__name__)
 
 
+
 class MTDNNModel(object):
     def __init__(self, opt, state_dict=None, num_train_step=-1):
         self.config = opt
@@ -30,18 +31,10 @@ class MTDNNModel(object):
         self.initial_from_local = True if state_dict else False
 
         self.network = SANBertNetwork(opt, initial_from_local=self.initial_from_local)
-
-        if opt['load_intermed'] is True:
-            # Load everything except the scoring layers which we initialize randomly
-            print('Removing scoring layers in state dict')
-            logger.info('Removing scoring layers in state dict')
-            new_state_dict = {'state':{}}
-            for key, val in state_dict['state'].items():
-                if not key.startswith('scoring'):
-                    new_state_dict['state'][key] = val
-            state_dict = new_state_dict
-
-            """
+        for n,p in self.network.named_parameters():
+            if p.requires_grad:
+                print(n)
+        """
             logger.info('Renaming scoring layers in state dict')
             new_state_state_dict = {}
             for key, val in state_dict['state'].items():
@@ -56,13 +49,19 @@ class MTDNNModel(object):
             for elm in state_dict['optimizer']['param_groups']:
                 print(elm)
             state_dict['state'] = new_state_state_dict
-            """
+        """
+        if opt['load_intermed']:
+            print('removing scoring layers')
+            state_dict = self.remove_scoring_layers_from_state_dict(state_dict)
         if state_dict:
             missing_keys, unexpected_keys = self.network.load_state_dict(state_dict['state'], strict=False)
+            print(unexpected_keys)
+
         self.mnetwork = nn.DataParallel(self.network) if opt['multi_gpu_on'] else self.network
         self.total_param = sum([p.nelement() for p in self.network.parameters() if p.requires_grad])
         if opt['cuda']:
             self.network.cuda()
+
         optimizer_parameters = self._get_param_groups(remove_scoring_layer=opt['load_intermed'])
 
         self._setup_optim(optimizer_parameters, state_dict, num_train_step)
@@ -168,6 +167,23 @@ class MTDNNModel(object):
                 assert cs is not None
                 lc = LOSS_REGISTRY[cs](name='Loss func of task {}: {}'.format(idx, cs))
                 self.kd_task_loss_criterion.append(lc)
+
+    def remove_scoring_layers_from_state_dict(self, state_dict):
+        new_state_dict = {}
+        for key, val in state_dict['state'].items():
+            if not key.startswith('scoring'):
+                new_state_dict[key] = val
+        state_dict['state'] = new_state_dict
+
+        for elm in state_dict['optimizer']['param_groups']:
+            print(elm.keys())
+        optimizer_parameters = self._get_param_groups(remove_scoring_layer=True)
+        for i, _ in enumerate(optimizer_parameters):
+            for key, val in optimizer_parameters[i].items():
+                state_dict['optimizer']['param_groups'][i][key] = val
+        for elm in state_dict['optimizer']['param_groups']:
+            print(elm.keys())
+        return state_dict
 
     def train(self):
         if self.para_swapped:
@@ -328,11 +344,23 @@ class MTDNNModel(object):
         torch.save(params, filename)
         logger.info('model saved to {}'.format(filename))
 
-    def load(self, checkpoint):
+    def load(self, checkpoint, from_intermed=False):
         model_state_dict = torch.load(checkpoint)
-        self.network.load_state_dict(model_state_dict['state'], strict=False)
-        self.optimizer.load_state_dict(model_state_dict['optimizer'])
-        self.config.update(model_state_dict['config'])
+        if not from_intermed:
+            model_state_dict = torch.load(checkpoint)
+            self.network.load_state_dict(model_state_dict['state'], strict=False)
+            self.optimizer.load_state_dict(model_state_dict['optimizer'])
+            self.config.update(model_state_dict['config'])
+        else:
+            # Load everything except the scoring layers which we initialize randomly
+            print('Removing scoring layers in state dict')
+            logger.info('Removing scoring layers in state dict')
+
+            state_dict = self.remove_scoring_layers_from_state_dict(model_state_dict)
+            self.network.load_state_dict(state_dict, strict=False)
+            self.optimizer.load_state_dict(state_dict['optimizer'])
+            #self.config.update(model_state_dict['config'])
+
 
     def cuda(self):
         self.network.cuda()

@@ -77,7 +77,8 @@ def data_config(parser):
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
 
-    parser.add_argument("--init_checkpoint", default='test_config', type=str)
+    parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
+    #parser.add_argument("--init_checkpoint", default='test_config', type=str)
     parser.add_argument('--data_dir',
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
@@ -97,12 +98,12 @@ def data_config(parser):
 def train_config(parser):
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-    parser.add_argument('--log_per_updates', type=int, default=100)
+    parser.add_argument('--log_per_updates', type=int, default=10)
     parser.add_argument('--save_per_updates', type=int, default=10000)
     parser.add_argument('--save_per_updates_on', action='store_true')
     parser.add_argument('--save_best_only', type=bool_flag, default=True)
     parser.add_argument('--debug', type=bool_flag, default=False, help='enable debug mode')
-    parser.add_argument('--epochs', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=15)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--optimizer', default='adamax',
@@ -122,8 +123,11 @@ def train_config(parser):
     parser.add_argument('--bert_dropout_p', type=float, default=0.1)
 
     # loading
-    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/model_best.pt', type=str)
-    parser.add_argument("--resume", type=bool_flag, default=False)
+    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
+    #parser.add_argument("--model_ckpt",
+    #                    default='test_config',
+    #                    type=str)
+    parser.add_argument("--resume", type=bool_flag, default=True)
 
     # scheduler
     parser.add_argument('--have_lr_scheduler', dest='have_lr_scheduler', action='store_false')
@@ -229,6 +233,7 @@ def main():
     test_data_list = []
     test_collater = Collater(is_train=False, encoder_type=encoder_type)
     for dataset in args.test_datasets:
+
         prefix = dataset.split('_')[0]
         task_def = task_defs.get_task_def(prefix)
         task_id = tasks[prefix]
@@ -271,13 +276,13 @@ def main():
         if os.path.exists(init_model):
 
             _state_dict = torch.load(init_model)
+
             if not 'config' in _state_dict:
                 cfg = load_json(args.pretrained_model_config)
                 state_dict = {'state':_state_dict, 'config':cfg}
 
             else:
                 state_dict = _state_dict
-
             config = state_dict['config']
         else:
             if opt['encoder_type'] not in EncoderModelType._value2member_map_:
@@ -298,14 +303,27 @@ def main():
 
     config['resume'] = args.resume
     config['model_ckpt'] = args.model_ckpt
+    config['init_checkpoint'] = args.init_checkpoint
+    config['load_intermed'] = args.load_intermed
+    config['train_datasets']  = args.train_datasets
+    config['test_datasets'] = args.test_datasets
+    config['output_dir'] = args.output_dir
+    config['task_def'] = args.task_def
+    config['task_def_list'] = opt['task_def_list']
+    config['epochs']  = args.epochs
 
-    #opt.update(config)
-    for key, val in config.items():
-        if key not in opt:
-            opt[key] = val
+
+
+
+    opt.update(config)
+
     model = MTDNNModel(opt, state_dict=state_dict, num_train_step=num_all_batches)
 
-    if args.resume and args.model_ckpt:
+    if args.load_intermed:
+        logger.info('loading intermed model from {}'.format(args.model_ckpt))
+        model.load(args.model_ckpt, from_intermed=True)
+
+    elif args.resume and args.model_ckpt:
         logger.info('loading model from {}'.format(args.model_ckpt))
         model.load(args.model_ckpt)
 
@@ -338,6 +356,9 @@ def main():
     best_score = 0.0
     score = None
     dev_metric = None
+    for n, p in model.network.named_parameters():
+        if p.requires_grad:
+            print(n)
     for epoch in range(0, args.epochs):
         logger.warning('At epoch {}'.format(epoch))
         start = datetime.now()
