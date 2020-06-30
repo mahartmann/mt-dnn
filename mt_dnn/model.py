@@ -34,22 +34,7 @@ class MTDNNModel(object):
         for n,p in self.network.named_parameters():
             if p.requires_grad:
                 print(n)
-        """
-            logger.info('Renaming scoring layers in state dict')
-            new_state_state_dict = {}
-            for key, val in state_dict['state'].items():
-                if key.startswith('scoring'):
-                    key = key.replace('scoring', 'oldscoring')
-                    new_state_state_dict[key] = val
-                else:
-                    new_state_state_dict[key] = val
-            # reset optimizer states
-            print('optim: {}'.format(state_dict['optimizer']['param_groups']))
-            print('optim len: {}'.format(len(state_dict['optimizer']['param_groups'])))
-            for elm in state_dict['optimizer']['param_groups']:
-                print(elm)
-            state_dict['state'] = new_state_state_dict
-        """
+
         if opt['load_intermed']:
             print('removing scoring layers')
             state_dict = self.remove_scoring_layers_from_state_dict(state_dict)
@@ -358,7 +343,7 @@ class MTDNNModel(object):
 
             state_dict = self.remove_scoring_layers_from_state_dict(model_state_dict)
             self.network.load_state_dict(state_dict, strict=False)
-            self.optimizer.load_state_dict(state_dict['optimizer'])
+            #self.optimizer.load_state_dict(state_dict['optimizer'])
             #self.config.update(model_state_dict['config'])
 
 

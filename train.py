@@ -59,6 +59,7 @@ def model_config(parser):
     parser.add_argument('--mix_opt', type=int, default=0)
     parser.add_argument('--max_seq_len', type=int, default=512)
     parser.add_argument('--init_ratio', type=float, default=1)
+    parser.add_argument('--annealed_sampling', type=float, default=0.8, help='Factor for annealed sampling, where tasks are sampled proportional to ds size towards beginning of training. If 0, sampling strategy is to draw proportional to ds size')
     parser.add_argument('--encoder_type', type=int, default=EncoderModelType.BERT)
     parser.add_argument('--num_hidden_layers', type=int, default=-1)
     parser.add_argument('--pretrained_model_config', type=str, default='')
@@ -77,16 +78,16 @@ def data_config(parser):
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
 
-    parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
-    #parser.add_argument("--init_checkpoint", default='test_config', type=str)
+    #parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
+    parser.add_argument("--init_checkpoint", default='test_config', type=str)
     parser.add_argument('--data_dir',
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/adr_task_def.yml")
-    parser.add_argument('--train_datasets', default='adr1')
-    parser.add_argument('--test_datasets', default='adr1')
-    parser.add_argument('--load_intermed', default=True, type=bool_flag)
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/scope_task_def.yml")
+    parser.add_argument('--train_datasets', default='iula,nubes')
+    parser.add_argument('--test_datasets', default='iula')
+    parser.add_argument('--load_intermed', default=False, type=bool_flag)
 
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
@@ -127,7 +128,7 @@ def train_config(parser):
     #parser.add_argument("--model_ckpt",
     #                    default='test_config',
     #                    type=str)
-    parser.add_argument("--resume", type=bool_flag, default=True)
+    parser.add_argument("--resume", type=bool_flag, default=False)
 
     # scheduler
     parser.add_argument('--have_lr_scheduler', dest='have_lr_scheduler', action='store_false')
@@ -224,7 +225,7 @@ def main():
         train_datasets.append(train_data_set)
     train_collater = Collater(dropout_w=args.dropout_w, encoder_type=encoder_type, soft_label=args.mkd_opt > 0)
     multi_task_train_dataset = MultiTaskDataset(train_datasets)
-    multi_task_batch_sampler = MultiTaskBatchSampler(train_datasets, args.batch_size, args.mix_opt, args.ratio)
+    multi_task_batch_sampler = MultiTaskBatchSampler(train_datasets, args.batch_size, args.mix_opt, args.ratio, annealed_sampling=args.annealed_sampling, max_epochs=args.epochs)
     multi_task_train_data = DataLoader(multi_task_train_dataset, batch_sampler=multi_task_batch_sampler, collate_fn=train_collater.collate_fn, pin_memory=args.cuda)
 
     opt['task_def_list'] = task_def_list
@@ -311,6 +312,7 @@ def main():
     config['task_def'] = args.task_def
     config['task_def_list'] = opt['task_def_list']
     config['epochs']  = args.epochs
+    config['learning_rate'] = args.learning_rate
 
 
 

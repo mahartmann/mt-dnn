@@ -19,11 +19,14 @@ BOS_ID=101
 
 class MultiTaskBatchSampler(BatchSampler):
 
-    def __init__(self, datasets, batch_size, mix_opt, extra_task_ratio):
+    def __init__(self, datasets, batch_size, mix_opt, extra_task_ratio, annealed_sampling=0, max_epochs=2400):
         self._datasets = datasets
         self._batch_size = batch_size
         self._mix_opt = mix_opt
         self._extra_task_ratio = extra_task_ratio
+        self.annealed_sampling_factor = annealed_sampling
+        self.current_epoch = -1
+        self.max_epochs = max_epochs
         train_data_list = []
         for dataset in datasets:
             train_data_list.append(self._get_shuffled_index_batches(len(dataset), batch_size))
@@ -39,17 +42,33 @@ class MultiTaskBatchSampler(BatchSampler):
         return sum(len(train_data) for train_data in self._train_data_list)
 
     def __iter__(self):
+        self.current_epoch += 1
         all_iters = [iter(item) for item in self._train_data_list]
-        all_indices = self._gen_task_indices(self._train_data_list, self._mix_opt, self._extra_task_ratio)
+        all_indices = self._gen_task_indices(self._train_data_list, self._mix_opt, self._extra_task_ratio, self.annealed_sampling_factor, self.current_epoch, self.max_epochs)
         for local_task_idx in all_indices:
             task_id = self._datasets[local_task_idx].get_task_id()
             batch = next(all_iters[local_task_idx])
             yield [(task_id, sample_id) for sample_id in batch]
 
+
     @staticmethod
-    def _gen_task_indices(train_data_list, mix_opt, extra_task_ratio):
+    def _gen_task_indices(train_data_list, mix_opt, extra_task_ratio, annealed_sampling_factor, current_epoch, max_epochs):
         all_indices = []
-        if len(train_data_list) > 1 and extra_task_ratio > 0:
+        if annealed_sampling_factor > 0:
+            #  compute alpha for annealed sampling according to Stickland and Murray 2019
+            alpha = 1 - annealed_sampling_factor*((current_epoch-1.)/(max_epochs-1.))
+            for i in range(1, len(train_data_list)):
+                all_indices += [i] * int(np.ceil(len(train_data_list[i])**alpha))
+            if mix_opt > 0:
+                random.shuffle(all_indices)
+            all_indices += [0] * int(np.ceil(len(train_data_list[0])**alpha))
+            if mix_opt < 1:
+                random.shuffle(all_indices)
+            # restrict the number of batches per epoch to the number resulting from sampling with alpha=0
+            num_updates = int(np.sum([len(train_data_list[i]) for i in range(len(train_data_list))]))
+            all_indices = all_indices[:num_updates+1]
+
+        elif len(train_data_list) > 1 and extra_task_ratio > 0:
             main_indices = [0] * len(train_data_list[0])
             extra_indices = []
             for i in range(1, len(train_data_list)):
@@ -440,3 +459,10 @@ class Collater:
             batch_data.append(additional_features)
 
         return batch_info, batch_data
+
+if __name__=="__main__":
+    annealed_sampling_factor = 0.8
+    max_epochs = 200
+    for current_epoch in range(max_epochs):
+        alpha = 1 - annealed_sampling_factor * ((current_epoch - 1.) / (max_epochs - 1.))
+        print(alpha)
