@@ -13,6 +13,7 @@ from torch.utils.data import Dataset, DataLoader, BatchSampler
 from experiments.exp_def import TaskDef
 from experiments.mlm.mlm_utils import truncate_seq_pair, load_loose_json
 from experiments.mlm.mlm_utils import create_instances_from_document, create_masked_lm_predictions
+from collections import Counter
 
 UNK_ID=100
 BOS_ID=101
@@ -45,10 +46,33 @@ class MultiTaskBatchSampler(BatchSampler):
         self.current_epoch += 1
         all_iters = [iter(item) for item in self._train_data_list]
         all_indices = self._gen_task_indices(self._train_data_list, self._mix_opt, self._extra_task_ratio, self.annealed_sampling_factor, self.current_epoch, self.max_epochs)
-        for local_task_idx in all_indices:
-            task_id = self._datasets[local_task_idx].get_task_id()
-            batch = next(all_iters[local_task_idx])
-            yield [(task_id, sample_id) for sample_id in batch]
+        self.sampling_stats(all_indices)
+        if self.annealed_sampling_factor == 0:
+            for local_task_idx in all_indices:
+                task_id = self._datasets[local_task_idx].get_task_id()
+                batch = next(all_iters[local_task_idx])
+                yield [(task_id, sample_id) for sample_id in batch]
+        else:
+            for local_task_idx, bid in all_indices:
+                task_id = self._datasets[local_task_idx].get_task_id()
+
+                batch = self._train_data_list[task_id][bid]
+
+                yield [(task_id, sample_id) for sample_id in batch]
+
+    def sampling_stats(self, all_indices):
+        alpha = 1 - self.annealed_sampling_factor * ((self.current_epoch - 1.) / (self.max_epochs - 1.))
+        if isinstance(all_indices[0],int):
+            tids = [elm for elm in all_indices]
+        else:
+            tids = [elm[0] for elm in all_indices]
+        print(
+            'Epoch {}, annealed sampling factor {}, alpha={}'.format(self.current_epoch, self.annealed_sampling_factor,
+                                                                     alpha))
+        c = Counter(tids)
+        for key, val in c.most_common():
+            print('{:.2f}% ({}) of sampled batches for task {}'.format(val/np.sum([elm for elm in c.values()])*100, val, key))
+
 
 
     @staticmethod
@@ -58,10 +82,28 @@ class MultiTaskBatchSampler(BatchSampler):
             #  compute alpha for annealed sampling according to Stickland and Murray 2019
             alpha = 1 - annealed_sampling_factor*((current_epoch-1.)/(max_epochs-1.))
             for i in range(1, len(train_data_list)):
-                all_indices += [i] * int(np.ceil(len(train_data_list[i])**alpha))
+                _all_task_indices = [i] * int(np.ceil(len(train_data_list[i])**alpha))
+                _all_batch_indices = []
+                tid = 0
+                for elm in _all_task_indices:
+                    # append from start if the end is reached (this is approximates shuffling with replacement)
+                    if tid >= len(train_data_list[i]):
+                        tid = 0
+                    _all_batch_indices.append(tid)
+                    tid += 1
+                all_indices += [(tid, bid) for tid,bid in zip(_all_task_indices, _all_batch_indices)]
             if mix_opt > 0:
                 random.shuffle(all_indices)
-            all_indices += [0] * int(np.ceil(len(train_data_list[0])**alpha))
+            _all_task_indices = [0] * int(np.ceil(len(train_data_list[0]) ** alpha))
+            _all_batch_indices = []
+            tid = 0
+            for elm in _all_task_indices:
+                # append from start if the end is reached (this is approximates shuffling with replacement)
+                if tid >= len(train_data_list[0]):
+                    tid = 0
+                _all_batch_indices.append(tid)
+                tid += 1
+            all_indices += [(tid, bid) for tid, bid in zip(_all_task_indices, _all_batch_indices)]
             if mix_opt < 1:
                 random.shuffle(all_indices)
             # restrict the number of batches per epoch to the number resulting from sampling with alpha=0
