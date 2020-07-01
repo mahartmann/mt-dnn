@@ -1,3 +1,78 @@
+iulaallnocond:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+iulaallembed:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+iulanocond:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
 iulaembed:
   data_format: Seqence
   encoder_type: BERT
