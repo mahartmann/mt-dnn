@@ -78,16 +78,16 @@ def data_config(parser):
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
 
-    #parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
-    parser.add_argument("--init_checkpoint", default='test_config', type=str)
+    parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
+    #parser.add_argument("--init_checkpoint", default='test_config', type=str)
     parser.add_argument('--data_dir',
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
     parser.add_argument('--task_def', type=str, default="experiments/negscope/scope_task_def.yml")
-    parser.add_argument('--train_datasets', default='iula,nubes,dtneg')
-    parser.add_argument('--test_datasets', default='iula')
-    parser.add_argument('--load_intermed', default=False, type=bool_flag)
+    parser.add_argument('--train_datasets', default='nubes')
+    parser.add_argument('--test_datasets', default='nubes')
+    parser.add_argument('--load_intermed', default=True, type=bool_flag)
 
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
@@ -104,7 +104,7 @@ def train_config(parser):
     parser.add_argument('--save_per_updates_on', action='store_true')
     parser.add_argument('--save_best_only', type=bool_flag, default=True)
     parser.add_argument('--debug', type=bool_flag, default=False, help='enable debug mode')
-    parser.add_argument('--epochs', type=int, default=15)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--optimizer', default='adamax',
@@ -112,9 +112,9 @@ def train_config(parser):
     parser.add_argument('--grad_clipping', type=float, default=0)
     parser.add_argument('--global_grad_clipping', type=float, default=1.0)
     parser.add_argument('--weight_decay', type=float, default=0)
-    parser.add_argument('--learning_rate', type=float, default=5e-5)
+    parser.add_argument('--learning_rate', type=float, default=5e-4)
     parser.add_argument('--momentum', type=float, default=0)
-    parser.add_argument('--warmup', type=float, default=0.1)
+    parser.add_argument('--warmup', type=float, default=-1)
     parser.add_argument('--warmup_schedule', type=str, default='warmup_linear')
     parser.add_argument('--adam_eps', type=float, default=1e-6)
 
@@ -124,7 +124,7 @@ def train_config(parser):
     parser.add_argument('--bert_dropout_p', type=float, default=0.1)
 
     # loading
-    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/best_model/model_best.pt', type=str)
+    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
     #parser.add_argument("--model_ckpt",
     #                    default='test_config',
     #                    type=str)
@@ -138,7 +138,7 @@ def train_config(parser):
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--bert_l2norm', type=float, default=0.0)
     parser.add_argument('--scheduler_type', type=str, default='ms', help='ms/rop/exp')
-    parser.add_argument('--output_dir', default='checkpoint/ds')
+    parser.add_argument('--output_dir', default='checkpoint/nubes_intermed')
     parser.add_argument('--seed', type=int, default=2018,
                         help='random seed for data shuffling, embedding init, etc.')
     parser.add_argument('--grad_accumulation_step', type=int, default=1)
@@ -313,6 +313,7 @@ def main():
     config['task_def_list'] = opt['task_def_list']
     config['epochs']  = args.epochs
     config['learning_rate'] = args.learning_rate
+    config['warmup'] = args.warmup
 
 
 
@@ -369,6 +370,9 @@ def main():
             batch_meta, batch_data = Collater.patch_data(args.cuda, batch_meta, batch_data)
             task_id = batch_meta['task_id']
             model.update(batch_meta, batch_data)
+            #print(model.optimizer.get_lr())
+            #print(args.have_lr_scheduler)
+            #print('{}'.format([elm for elm in model.optimizer.param_groups]))
             if (model.local_updates) % (args.log_per_updates * args.grad_accumulation_step) == 0 or model.local_updates == 1:
                 ramaining_time = str((datetime.now() - start) / (i + 1) * (len(multi_task_train_data) - i - 1)).split('.')[0]
                 logger.info('Task [{0:2}] updates[{1:6}] train loss[{2:.5f}] remaining[{3}]'.format(task_id,

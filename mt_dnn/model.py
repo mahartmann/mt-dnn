@@ -31,9 +31,7 @@ class MTDNNModel(object):
         self.initial_from_local = True if state_dict else False
 
         self.network = SANBertNetwork(opt, initial_from_local=self.initial_from_local)
-        for n,p in self.network.named_parameters():
-            if p.requires_grad:
-                print(n)
+
 
         if opt['load_intermed']:
             print('removing scoring layers')
@@ -47,13 +45,20 @@ class MTDNNModel(object):
         if opt['cuda']:
             self.network.cuda()
 
+        new_optim_opts = {'lr': opt['learning_rate'], 'warmup':opt['warmup']}
         optimizer_parameters = self._get_param_groups(remove_scoring_layer=opt['load_intermed'])
-
         self._setup_optim(optimizer_parameters, state_dict, num_train_step)
+        # update optimizer hyperparams
+        self._overwrite_optimizer_hyperparams(new_optim_opts)
         self.para_swapped = False
         self.optimizer.zero_grad()
         self._setup_lossmap(self.config)
         self._setup_kd_lossmap(self.config)
+
+    def _overwrite_optimizer_hyperparams(self, new_optim_opts):
+        for key, val in new_optim_opts.items():
+            for elm in self.optimizer.param_groups:
+                elm[key] = val
 
     def _get_param_groups(self, remove_scoring_layer):
         no_decay = ['bias', 'gamma', 'beta', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -65,20 +70,24 @@ class MTDNNModel(object):
                  'weight_decay': 0.0}
             ]
         else:
+
             optimizer_parameters = [
                 {'params': [p for n, p in self.network.named_parameters() if not any(nd in n for nd in no_decay) and not n.startswith('scoring')],
                  'weight_decay': 0.01},
                 {'params': [p for n, p in self.network.named_parameters() if any(nd in n for nd in no_decay) and not n.startswith('scoring')],
                  'weight_decay': 0.0}
             ]
+
         return optimizer_parameters
 
     def _setup_optim(self, optimizer_parameters, state_dict=None, num_train_step=-1):
+
         if self.config['optimizer'] == 'sgd':
             self.optimizer = optim.SGD(optimizer_parameters, self.config['learning_rate'],
                                        weight_decay=self.config['weight_decay'])
 
         elif self.config['optimizer'] == 'adamax':
+
             self.optimizer = Adamax(optimizer_parameters,
                                     self.config['learning_rate'],
                                     warmup=self.config['warmup'],
@@ -86,6 +95,7 @@ class MTDNNModel(object):
                                     max_grad_norm=self.config['grad_clipping'],
                                     schedule=self.config['warmup_schedule'],
                                     weight_decay=self.config['weight_decay'])
+
             if self.config.get('have_lr_scheduler', False): self.config['have_lr_scheduler'] = False
         elif self.config['optimizer'] == 'radam':
             self.optimizer = RAdam(optimizer_parameters,
@@ -159,15 +169,10 @@ class MTDNNModel(object):
             if not key.startswith('scoring'):
                 new_state_dict[key] = val
         state_dict['state'] = new_state_dict
-
-        for elm in state_dict['optimizer']['param_groups']:
-            print(elm.keys())
         optimizer_parameters = self._get_param_groups(remove_scoring_layer=True)
         for i, _ in enumerate(optimizer_parameters):
             for key, val in optimizer_parameters[i].items():
                 state_dict['optimizer']['param_groups'][i][key] = val
-        for elm in state_dict['optimizer']['param_groups']:
-            print(elm.keys())
         return state_dict
 
     def train(self):
@@ -336,13 +341,13 @@ class MTDNNModel(object):
             self.network.load_state_dict(model_state_dict['state'], strict=False)
             self.optimizer.load_state_dict(model_state_dict['optimizer'])
             self.config.update(model_state_dict['config'])
-        else:
-            # Load everything except the scoring layers which we initialize randomly
-            print('Removing scoring layers in state dict')
-            logger.info('Removing scoring layers in state dict')
+        #else:
+        #    # Load everything except the scoring layers which we initialize randomly
+        #    print('Removing scoring layers in state dict')
+        #    logger.info('Removing scoring layers in state dict')
 
-            state_dict = self.remove_scoring_layers_from_state_dict(model_state_dict)
-            self.network.load_state_dict(state_dict, strict=False)
+            #state_dict = self.remove_scoring_layers_from_state_dict(model_state_dict)
+            #self.network.load_state_dict(state_dict, strict=False)
             #self.optimizer.load_state_dict(state_dict['optimizer'])
             #self.config.update(model_state_dict['config'])
 
