@@ -39,7 +39,8 @@ logger = create_logger(
 def feature_extractor(tokenizer, text_a, text_b=None, max_length=512, model_type=None, enable_padding=False, pad_on_left=False,
                                       pad_token=0,
                                       pad_token_segment_id=0,
-                                      mask_padding_with_zero=False): # set mask_padding_with_zero default value as False to keep consistent with original setting
+                                      mask_padding_with_zero=False,
+                      additional_features_key=None): # set mask_padding_with_zero default value as False to keep consistent with original setting
     inputs = tokenizer.encode_plus(
         text_a,
         text_b,
@@ -96,6 +97,56 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                     'label': label,
                     'token_id': input_ids,
                     'type_id': type_ids}
+                writer.write('{}\n'.format(json.dumps(features)))
+    def build_data_premise_only_with_additional_features(data, dump_path, additional_features_ids, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT):
+        with open(dump_path, 'w', encoding='utf-8') as writer:
+            for idx, sample in enumerate(data):
+                ids = sample['uid']
+                premise = sample['premise']
+                label = sample['label']
+                tokens = []
+                additional_features_extended = []
+                for i, word in enumerate(premise):
+                    subwords = tokenizer.tokenize(word)
+                    tokens.extend(subwords)
+                    for j in range(len(subwords)):
+
+                        if j == 0:
+                            additional_features_extended.append({additional_features_id: sample[additional_features_id][i] for additional_features_id in additional_features_ids if type(sample[additional_features_id]) == list})
+                        else:
+                            # give all subwords the same additional feature as the first subword
+                            additional_features_extended.append(
+                                {additional_features_id: sample[additional_features_id][i] for additional_features_id in
+                                 additional_features_ids if type(sample[additional_features_id]) == list})
+                if len(tokens) > max_seq_len - 2:
+                    tokens = tokens[:max_seq_len - 2]
+                    labels = labels[:max_seq_len - 2]
+                    additional_features_extended = additional_features_extended[:max_seq_len - 2]
+                # start and end symbol always get additiona feature 0
+                additional_features = [{additional_features_id:0 for additional_features_id in additional_features_ids}] + additional_features_extended + [{additional_features_id:0 for additional_features_id in additional_features_ids}]
+                input_ids = tokenizer.convert_tokens_to_ids([tokenizer.cls_token] + tokens + [tokenizer.sep_token])
+                assert len(additional_features) == len(input_ids)
+                type_ids = [0] * len(input_ids)
+
+                features = {
+                    'uid': ids,
+                    'label': label,
+                    'token_id': input_ids,
+                    'type_id': type_ids}
+                for additional_features_id in additional_features_ids:
+                    if additional_features_id == 'sid':
+                        features['sid'] = additional_features[0]['sid']
+                    else:
+                        additional_features_seq = []
+                        for elm in additional_features:
+                            additional_features_seq.append(elm[additional_features_id])
+                        features[additional_features_id] = additional_features_seq
+                # convert the additional features to idxs
+                for key in additional_features_ids:
+                    if type(sample[key]) == list:
+                        features[key] = [convert_additional_features(elm, key) for elm in features[key]]
+                    else:
+                        features[key] = sample[key]
                 writer.write('{}\n'.format(json.dumps(features)))
 
     def build_data_premise_and_one_hypo(
@@ -265,13 +316,16 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 
 
     if data_format == DataFormat.PremiseOnly:
-
-        build_data_premise_only(
-            data,
-            dump_path,
-            max_seq_len,
-            tokenizer,
-            encoderModelType)
+        if additional_features:
+            build_data_premise_only_with_additional_features(data, dump_path, additional_features, max_seq_len, tokenizer,
+                                                         encoderModelType)
+        else:
+            build_data_premise_only(
+                data,
+                dump_path,
+                max_seq_len,
+                tokenizer,
+                encoderModelType)
     elif data_format == DataFormat.PremiseAndOneHypothesis:
         build_data_premise_and_one_hypo(
             data, dump_path, max_seq_len, tokenizer, encoderModelType)
@@ -289,6 +343,17 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
     else:
         raise ValueError(data_format)
 
+def convert_additional_features(feature, type='scope_indicator'):
+    if type == 'scope_indicator':
+        if feature == 'O':
+            return 0
+        elif feature == 'I':
+            return 1
+        elif feature == 0:
+            return 0
+        else: raise Exception
+    else: return feature
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -300,7 +365,7 @@ def parse_args():
     parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/nubes_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugsssilverscope_task_def.yml")
 
     args = parser.parse_args()
     return args
@@ -351,6 +416,7 @@ def main(args):
             rows = load_data(file_path, task_def, json_format=args.json_format)
             dump_path = os.path.join(mt_dnn_root, "%s_%s.json" % (task, split_name))
             logger.info(dump_path)
+
             build_data(
                 rows,
                 dump_path,

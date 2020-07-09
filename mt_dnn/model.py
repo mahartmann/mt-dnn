@@ -36,6 +36,7 @@ class MTDNNModel(object):
         if opt['load_intermed']:
             print('removing scoring layers')
             state_dict = self.remove_scoring_layers_from_state_dict(state_dict)
+
         if state_dict:
             missing_keys, unexpected_keys = self.network.load_state_dict(state_dict['state'], strict=False)
             print(unexpected_keys)
@@ -54,6 +55,10 @@ class MTDNNModel(object):
         self.optimizer.zero_grad()
         self._setup_lossmap(self.config)
         self._setup_kd_lossmap(self.config)
+
+    def _freeze_encoder(self):
+        for p in self.network.bert.parameters():
+            p.requires_grad = False
 
     def _overwrite_optimizer_hyperparams(self, new_optim_opts):
         for key, val in new_optim_opts.items():
@@ -215,8 +220,8 @@ class MTDNNModel(object):
                          'attention_mask': inputs[batch_meta['mask']],
                          'task_id': task_id
         }
-        #if 'additional_features' in batch_meta:
-        inputs_as_dict['additional_features'] = None#inputs[batch_meta['additional_features']]
+        if 'additional_features' in batch_meta:
+            inputs_as_dict['additional_features'] = inputs[batch_meta['additional_features']]
         logits = self.mnetwork(**inputs_as_dict)
 
         # compute loss
@@ -334,22 +339,13 @@ class MTDNNModel(object):
         torch.save(params, filename)
         logger.info('model saved to {}'.format(filename))
 
-    def load(self, checkpoint, from_intermed=False):
+    def load(self, checkpoint):
         model_state_dict = torch.load(checkpoint)
-        if not from_intermed:
-            model_state_dict = torch.load(checkpoint)
-            self.network.load_state_dict(model_state_dict['state'], strict=False)
-            self.optimizer.load_state_dict(model_state_dict['optimizer'])
-            self.config.update(model_state_dict['config'])
-        #else:
-        #    # Load everything except the scoring layers which we initialize randomly
-        #    print('Removing scoring layers in state dict')
-        #    logger.info('Removing scoring layers in state dict')
 
-            #state_dict = self.remove_scoring_layers_from_state_dict(model_state_dict)
-            #self.network.load_state_dict(state_dict, strict=False)
-            #self.optimizer.load_state_dict(state_dict['optimizer'])
-            #self.config.update(model_state_dict['config'])
+        model_state_dict = torch.load(checkpoint)
+        self.network.load_state_dict(model_state_dict['state'], strict=False)
+        self.optimizer.load_state_dict(model_state_dict['optimizer'])
+        self.config.update(model_state_dict['config'])
 
 
     def cuda(self):

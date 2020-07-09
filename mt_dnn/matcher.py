@@ -32,6 +32,7 @@ def generate_decoder_opt(enable_san, max_opt):
     if enable_san and max_opt < 3:
         opt_v = max_opt
     return opt_v
+
 class SANBertNetwork(nn.Module):
     def __init__(self, opt,  bert_config=None, initial_from_local=False):
         super(SANBertNetwork, self).__init__()
@@ -90,9 +91,15 @@ class SANBertNetwork(nn.Module):
             ################################################################
             ######## Add additional layers used during encoding ############
             ################################################################
-            if task_def.additional_features == AdditionalFeatures.cue_indicator:
-                embeds = nn.Embedding(2, hidden_size)
-                self.additional_input_features_list.append(embeds)
+
+            if len(task_def.additional_features) > 0:
+                for feature_name in task_def.additional_features:
+                    if feature_name == AdditionalFeatures.cue_indicator:
+                        embeds = nn.Embedding(2, hidden_size)
+                        self.additional_input_features_list.append(embeds)
+                    elif feature_name == AdditionalFeatures.scope_indicator:
+                        embeds = nn.Embedding(2, hidden_size)
+                        self.additional_input_features_list.append(embeds)
             else: self.additional_input_features_list.append(None)
 
             if task_obj is not None:
@@ -160,16 +167,41 @@ class SANBertNetwork(nn.Module):
 
         else:
             # get embeddings
-            bert_embeddings = self.bert.embeddings(input_ids=input_ids, token_type_ids=token_type_ids)
-            # add cue type embeddings
-            cue_embeds = self.additional_input_features_list[task_id](additional_features)
-            input_representations = bert_embeddings + cue_embeds
-            outputs = self.bert(input_ids=None, token_type_ids=token_type_ids, inputs_embeds=input_representations,
+
+            input_embeddings = self.embed_inputs_with_additional_features(task_id=task_id, input_ids=input_ids, position_ids=None, token_type_ids=token_type_ids, additional_feature_idxs=additional_features)
+            outputs = self.bert(input_ids=None, token_type_ids=token_type_ids, inputs_embeds=input_embeddings,
                                                           attention_mask=attention_mask)
             # input into bert
         sequence_output = outputs[0]
         pooled_output = outputs[1]
         return sequence_output, pooled_output
+
+    def embed_inputs_with_additional_features(self, task_id, input_ids, position_ids, token_type_ids, additional_feature_idxs):
+        # compute bert embeddings with adding embeddings for additional features before the Layernorm of the embedding layer
+        # this is copied and modified from the Bert source code
+        if input_ids is not None:
+            input_shape = input_ids.size()
+        else:
+            input_shape = self.bert.embeddings.inputs_embeds.size()[:-1]
+        seq_length = input_shape[1]
+        device = input_ids.device if input_ids is not None else self.bert.embeddings.inputs_embeds.device
+        if position_ids is None:
+            position_ids = torch.arange(seq_length, dtype=torch.long, device=device)
+            position_ids = position_ids.unsqueeze(0).expand(input_shape)
+        if token_type_ids is None:
+            token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
+
+
+        inputs_embeds = self.bert.embeddings.word_embeddings(input_ids)
+        position_embeddings = self.bert.embeddings.position_embeddings(position_ids)
+        token_type_embeddings = self.bert.embeddings.token_type_embeddings(token_type_ids)
+        additional_feature_embeds = self.additional_input_features_list[task_id](additional_feature_idxs)
+        embeddings = inputs_embeds + position_embeddings + token_type_embeddings + additional_feature_embeds
+
+        embeddings = self.bert.embeddings.LayerNorm(embeddings)
+        embeddings = self.bert.embeddings.dropout(embeddings)
+        return embeddings
+
 
     def forward(self, input_ids, token_type_ids, attention_mask,  premise_mask=None, hyp_mask=None, task_id=0, additional_features=None):
         sequence_output, pooled_output = self.encode(task_id, input_ids, token_type_ids, attention_mask, additional_features=additional_features)

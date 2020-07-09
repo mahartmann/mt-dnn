@@ -13,6 +13,7 @@ from data_utils.metrics import calc_metrics
 from mt_dnn.inference import eval_model
 from preprocessing.annotation_reader import get_clue_annotated_data
 from preprocessing.data_splits import write_split
+from train import bool_flag
 
 def dump(path, data):
     with open(path, 'w') as f:
@@ -30,7 +31,6 @@ def rejoin_subwords(toks, labels, replace_labels, default_label):
         else:
             filtered_toks.append([tok])
             filtered_labels.append(label)
-    #filtered_labels = [l if l not in replace_labels else default_label for l in filtered_labels]
     return [''.join(elm) for elm in filtered_toks], filtered_labels
 
 def main(args):
@@ -41,12 +41,16 @@ def main(args):
     # load task info
     task = args.task
     task_defs = TaskDefs(args.task_def)
-    #print(task_defs._task_type_map)
+    target_task_defs = TaskDefs(args.target_task_def)
+    target_task = args.target_task
     assert args.task in task_defs._task_type_map
     assert args.task in task_defs._data_type_map
     assert args.task in task_defs._metric_meta_map
     prefix = task.split('_')[0]
     task_def = task_defs.get_task_def(prefix)
+    target_task_def = target_task_defs.get_task_def(target_task.split('_')[0])
+
+
     data_type = task_defs._data_type_map[args.task]
     task_type = task_defs._task_type_map[args.task]
     metric_meta = task_defs._metric_meta_map[args.task]
@@ -61,18 +65,21 @@ def main(args):
     config["cuda"] = args.cuda
     model = MTDNNModel(config, state_dict=state_dict)
     model.load(checkpoint_path)
-
-    #tokenizer = BertTokenizer.from_pretrained(model.config['bert_model_type'])
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+    tokenizer = BertTokenizer.from_pretrained(args.tokenizer)
     encoder_type = config.get('encoder_type', EncoderModelType.BERT)
 
     test_data_set = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id, task_def=task_def)
+    test_data_set_target_task = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id,
+                                      task_def=task_def)
     collater = Collater(is_train=False, encoder_type=encoder_type)
     test_data = DataLoader(test_data_set, batch_size=args.batch_size_eval, collate_fn=collater.collate_fn, pin_memory=args.cuda)
     # get the sids from the datafile directly
     with open(args.prep_input) as f:
-        data_sids = [json.loads(line)['sid'] for line in  f]
-        print(data_sids)
+        if args.sids:
+            data_sids = [json.loads(line)['sid'] for line in  f]
+        else:
+            data_sids = ['{}_0'.format(i) for i,line in enumerate(f)]
+            print(data_sids)
     with torch.no_grad():
         test_metrics, test_predictions, scores, golds, test_ids = eval_model(model, test_data,
                                                                              metric_meta=metric_meta,
@@ -83,11 +90,14 @@ def main(args):
         for uid, pred in zip(results['uids'], results['predictions']):
             uid2pred[uid] = pred
 
-        setting= 'augment'
+        setting= args.setting
         out_seqs = []
         out_labels = []
+        orig_labels = []
         for data in test_data:
+
             label_map = data[0]['task_def']['label_vocab']
+
             all_input_ids = data[1][0]
             uids = data[0]['uids']
             for uid, input_ids in zip(uids, all_input_ids):
@@ -111,7 +121,11 @@ def main(args):
                 assert len(filtered_toks) == len(filtered_labels)
                 out_labels.append(filtered_labels)
                 out_seqs.append(filtered_toks)
-
+            # convert indexes back to original labels
+            #for elm in data[0]['label']:
+            #    print(elm)
+            #    print(target_label_map[elm])
+            orig_labels.extend([elm for elm in data[0]['label']])
 
         if args.silver_signal == 'cue':
             """
@@ -175,7 +189,7 @@ def main(args):
                                          'seq': augmented_seq,
                                          'cue_indicator': augmented_cue_labelseq,
                                          'sid': '{}_{}'.format(sid, cid)})
-            print(data)
+
             write_split(fname=args.outfile, data=data)
 
 
@@ -185,26 +199,28 @@ def main(args):
             """
             non_combined_data = []
             # produce scope annotated data
-            for _seq, labels in zip(out_seqs, out_labels):
+            #for _seq, labels in zip(out_seqs, out_labels):
+            for c, _seq in enumerate(out_seqs):
+                labels = out_labels[c]
+                orig_seq_labels = orig_labels[c]
+
                 seq = [elm for elm in _seq if elm !='CUE']
                 scope_labels = [labels[i] for i,elm in enumerate(_seq) if elm != 'CUE']
                 cue_labelseq = [None for elm in seq]
 
                 assert len(scope_labels) == len(cue_labelseq) == len(seq)
                 uid = len(non_combined_data)
+                #print(non_combined_data)
                 non_combined_data.append({'uid': uid,
-                                 'labels': scope_labels,
+                                 'scope_indicator': scope_labels,
+                                          'orig_labels': orig_seq_labels,
                                  'seq': seq,
-                                 'cue_indicator': cue_labelseq})
+                                 'cue_indicator': cue_labelseq,
+                                          'sid': uid})
             combined_data = re_combine_data(data_sids, non_combined_data, label_mapper=label_map)
-            print(combined_data)
+            for elm in combined_data:print(elm['labels'])
             write_split(fname=args.outfile, data=combined_data)
 
-
-
-        #dump(args.score, results)
-        #if args.with_label:
-        #    print(test_metrics)
 
 def re_combine_data(sids, data, label_mapper):
     sid2data = {}
@@ -226,38 +242,46 @@ def re_combine_data(sids, data, label_mapper):
         uid = len(combined_data)
         labels = ['O']*len(seq)
         cue_indicator = [0]*len(seq)
+
         for sent in sents:
-            for i, elm in enumerate(sent['labels']):
+
+            for i, elm in enumerate(sent['scope_indicator']):
                 if label_mapper[elm] == 'I':
                     labels[i] = 'I'
             for i, elm in enumerate(sent['cue_indicator']):
                 if elm == 1:
                     cue_indicator[i] = 1
-        print(labels)
+
         combined_data.append({'uid': uid,
-                                 'labels': labels,
+                                 'scope_indicator': labels,
                                  'seq': seq,
-                                 'cue_indicator': cue_indicator})
+                                 'cue_indicator': cue_indicator,
+                             'labels': sents[0]['orig_labels'],'sid':sent['sid']})
 
     return combined_data
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task_def", type=str, default="experiments/negscope/iula_task_def.yml")
-    parser.add_argument("--task", type=str, default='iula#cues')
+    parser.add_argument("--task_def", type=str, default="experiments/negscope/nubes_task_def.yml")
+    parser.add_argument("--task", type=str, default='nubes')
+    parser.add_argument("--target_task_def", type=str, default="experiments/negscope/drugs_task_def.yml")
+    parser.add_argument("--target_task", type=str, default='drugss')
     parser.add_argument("--task_id", type=int, help="the id of this task when training")
-
+    parser.add_argument("--tokenizer", type=str, default='bert-base-multilingual-cased')
     parser.add_argument("--prep_input", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-cased/iulanocues_test.json")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased/drugss_test.json")
     parser.add_argument("--outfile", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/iulanocussilvercue_test.tsv")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/drugsssilverscopes_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
-    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='cue')
+    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='scope')
     parser.add_argument('--max_seq_len', type=int, default=512)
     parser.add_argument('--batch_size_eval', type=int, default=8)
     parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-    parser.add_argument("--checkpoint", default='checkpoint/cue/07b36003-16d1-4e83-83bb-c4b32e677c3e/best_model/model_best.pt', type=str)
+    parser.add_argument("--checkpoint", default='checkpoint/nubes/best_model/model_best.pt', type=str)
+    parser.add_argument('--sids', type=bool_flag, default=False,
+                        help='Indicates if data contains sentence ids')
+    parser.add_argument("--setting", type=str, default='augment')
     args = parser.parse_args()
     main(args)

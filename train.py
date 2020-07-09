@@ -78,16 +78,17 @@ def data_config(parser):
     parser.add_argument('--tensorboard', action='store_true')
     parser.add_argument('--tensorboard_logdir', default='tensorboard_logdir')
 
-    parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
-    #parser.add_argument("--init_checkpoint", default='test_config', type=str)
+    #parser.add_argument("--init_checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
+    parser.add_argument("--init_checkpoint", default='test_config', type=str)
     parser.add_argument('--data_dir',
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/scope_task_def.yml")
-    parser.add_argument('--train_datasets', default='nubes')
-    parser.add_argument('--test_datasets', default='nubes')
-    parser.add_argument('--load_intermed', default=True, type=bool_flag)
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugsssilverscope_task_def.yml")
+    parser.add_argument('--train_datasets', default='drugsssilverscopes')
+    parser.add_argument('--test_datasets', default='drugsssilverscopes')
+    parser.add_argument('--load_intermed', default=False, type=bool_flag)
+    parser.add_argument('--freeze', default=False, type=bool_flag, help ='freeze encoder layers')
 
     parser.add_argument('--glue_format_on', action='store_true')
     parser.add_argument('--mkd-opt', type=int, default=0, 
@@ -112,9 +113,9 @@ def train_config(parser):
     parser.add_argument('--grad_clipping', type=float, default=0)
     parser.add_argument('--global_grad_clipping', type=float, default=1.0)
     parser.add_argument('--weight_decay', type=float, default=0)
-    parser.add_argument('--learning_rate', type=float, default=5e-4)
+    parser.add_argument('--learning_rate', type=float, default=5e-5)
     parser.add_argument('--momentum', type=float, default=0)
-    parser.add_argument('--warmup', type=float, default=-1)
+    parser.add_argument('--warmup', type=float, default=0.1)
     parser.add_argument('--warmup_schedule', type=str, default='warmup_linear')
     parser.add_argument('--adam_eps', type=float, default=1e-6)
 
@@ -124,10 +125,10 @@ def train_config(parser):
     parser.add_argument('--bert_dropout_p', type=float, default=0.1)
 
     # loading
-    parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
-    #parser.add_argument("--model_ckpt",
-    #                    default='test_config',
-    #                    type=str)
+    #parser.add_argument("--model_ckpt", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
+    parser.add_argument("--model_ckpt",
+                        default='test_config',
+                        type=str)
     parser.add_argument("--resume", type=bool_flag, default=False)
 
     # scheduler
@@ -306,6 +307,7 @@ def main():
     config['model_ckpt'] = args.model_ckpt
     config['init_checkpoint'] = args.init_checkpoint
     config['load_intermed'] = args.load_intermed
+    config['freeze'] = args.freeze
     config['train_datasets']  = args.train_datasets
     config['test_datasets'] = args.test_datasets
     config['output_dir'] = args.output_dir
@@ -322,14 +324,15 @@ def main():
 
     model = MTDNNModel(opt, state_dict=state_dict, num_train_step=num_all_batches)
 
-    if args.load_intermed:
-        logger.info('loading intermed model from {}'.format(args.model_ckpt))
-        model.load(args.model_ckpt, from_intermed=True)
 
-    elif args.resume and args.model_ckpt:
+
+    if not args.load_intermed and args.resume and args.model_ckpt:
         logger.info('loading model from {}'.format(args.model_ckpt))
         model.load(args.model_ckpt)
 
+    if opt['freeze']:
+        print('freezing encoder')
+        model._freeze_encoder()
     #### model meta str
     headline = '############# Model Arch of MT-DNN #############'
     ### print network
@@ -370,9 +373,7 @@ def main():
             batch_meta, batch_data = Collater.patch_data(args.cuda, batch_meta, batch_data)
             task_id = batch_meta['task_id']
             model.update(batch_meta, batch_data)
-            #print(model.optimizer.get_lr())
-            #print(args.have_lr_scheduler)
-            #print('{}'.format([elm for elm in model.optimizer.param_groups]))
+
             if (model.local_updates) % (args.log_per_updates * args.grad_accumulation_step) == 0 or model.local_updates == 1:
                 ramaining_time = str((datetime.now() - start) / (i + 1) * (len(multi_task_train_data) - i - 1)).split('.')[0]
                 logger.info('Task [{0:2}] updates[{1:6}] train loss[{2:.5f}] remaining[{3}]'.format(task_id,

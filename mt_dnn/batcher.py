@@ -224,6 +224,7 @@ class SingleTaskDataset(Dataset):
                     if (task_type != TaskType.Ranking) and (len(sample['token_id']) > maxlen):
                         continue
                 data.append(sample)
+
             print('Loaded {} samples out of {}'.format(len(data), cnt))
 
         return data, None
@@ -266,13 +267,15 @@ class Collater:
                  dropout_w=0.005,
                  soft_label=False,
                  encoder_type=EncoderModelType.BERT,
-                 cue_embeddings=False):
+                 cue_embeddings=False,
+                 additional_features=None):
         self.is_train = is_train
         self.dropout_w = dropout_w
         self.soft_label_on = soft_label
         self.encoder_type = encoder_type
         self.pairwise_size = 1
-        self.cue_embeddings=cue_embeddings
+        self.cue_embeddings = cue_embeddings
+        self.get_additional_features = additional_features
 
     def __random_select__(self, arr):
         if self.dropout_w > 0:
@@ -315,6 +318,7 @@ class Collater:
             size = len(sample['token_id'])
             self.pairwise_size = size
             assert size == len(sample['type_id'])
+
             for idx in range(0, size):
                 token_id = sample['token_id'][idx]
                 type_id = sample['type_id'][idx]
@@ -353,11 +357,7 @@ class Collater:
         # prepare model input
         # the additional features were converted to a repr(Enum)
 
-        additional_features_names = get_additional_feature_names(task_def['additional_features'])
-        additional_features_name = None
-        for elm in additional_features_names:
-            if elm != 'sid':
-                additional_features_name = elm
+        additional_features_name = [elm for elm in get_additional_feature_names(task_def['additional_features']) if elm != 'sid'][0]
         batch_info, batch_data = self._prepare_model_input(batch, data_type, additional_features_name)
         batch_info['task_id'] = task_id  # used for select correct decoding head
         batch_info['input_len'] = len(batch_data)  # used to select model inputs
