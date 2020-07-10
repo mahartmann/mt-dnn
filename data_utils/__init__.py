@@ -16,7 +16,7 @@ def load_data(file_path, task_def, json_format=True):
     for line in open(file_path, encoding="utf-8"):
         if json_format:
             d = json.loads(line.strip())
-            print(get_additional_feature_names(task_def['additional_features']))
+
             if data_format == DataFormat.PremiseOnly:
                 row = {"uid": d['uid'], "label": d['labels'], "premise": d['seq']}
                 if get_additional_feature_names(task_def['additional_features']):
@@ -27,7 +27,7 @@ def load_data(file_path, task_def, json_format=True):
                 if get_additional_feature_names(task_def['additional_features']):
                     for additional_features in get_additional_feature_names(task_def['additional_features']):
                         row[additional_features] = d[additional_features]
-            print(row)
+
         else:
 
             fields = line.strip("\n").split("\t")

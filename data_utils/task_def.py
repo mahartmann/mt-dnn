@@ -27,7 +27,7 @@ class EncoderModelType(IntEnum):
 
 class AdditionalFeatures(IntEnum):
     cue_indicator = 1
-    scope_markers = 2
+    scope_indicator = 2
     sid = 3
 
 
