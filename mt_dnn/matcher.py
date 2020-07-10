@@ -92,7 +92,7 @@ class SANBertNetwork(nn.Module):
             ######## Add additional layers used during encoding ############
             ################################################################
 
-            if len(task_def.additional_features) > 0:
+            if task_def.additional_features is not None:
                 for feature_name in task_def.additional_features:
                     if feature_name == AdditionalFeatures.cue_indicator:
                         embeds = nn.Embedding(2, hidden_size)

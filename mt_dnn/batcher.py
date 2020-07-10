@@ -357,7 +357,9 @@ class Collater:
         # prepare model input
         # the additional features were converted to a repr(Enum)
 
-        additional_features_name = [elm for elm in get_additional_feature_names(task_def['additional_features']) if elm != 'sid'][0]
+        if len( [elm for elm in get_additional_feature_names(task_def['additional_features']) if elm != 'sid']) > 0:
+            additional_features_name = [elm for elm in get_additional_feature_names(task_def['additional_features']) if elm != 'sid'][0]
+        else: additional_features_name = None
         batch_info, batch_data = self._prepare_model_input(batch, data_type, additional_features_name)
         batch_info['task_id'] = task_id  # used for select correct decoding head
         batch_info['input_len'] = len(batch_data)  # used to select model inputs
