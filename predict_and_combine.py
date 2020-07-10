@@ -13,7 +13,8 @@ from data_utils.metrics import calc_metrics
 from mt_dnn.inference import eval_model
 from preprocessing.annotation_reader import get_clue_annotated_data
 from preprocessing.data_splits import write_split
-from train import bool_flag
+from my_utils import bool_flag
+
 
 def dump(path, data):
     with open(path, 'w') as f:
@@ -261,27 +262,29 @@ def re_combine_data(sids, data, label_mapper):
     return combined_data
 
 if __name__=="__main__":
+    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_def", type=str, default="experiments/negscope/nubes_task_def.yml")
     parser.add_argument("--task", type=str, default='nubes')
     parser.add_argument("--target_task_def", type=str, default="experiments/negscope/drugs_task_def.yml")
-    parser.add_argument("--target_task", type=str, default='drugss')
+    parser.add_argument("--target_task", type=str, default="drugss")
     parser.add_argument("--task_id", type=int, help="the id of this task when training")
-    parser.add_argument("--tokenizer", type=str, default='bert-base-multilingual-cased')
+    parser.add_argument("--tokenizer", type=str, default="bert-base-multilingual-cased")
     parser.add_argument("--prep_input", type=str,
                         default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased/drugss_test.json")
     parser.add_argument("--outfile", type=str,
                         default="/home/mareike/PycharmProjects/negscope/data/formatted/drugsssilverscopes_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
-    parser.add_argument("--silver_signal", type=str, help='what we want to predict', choices=['scope', 'cue'], default='scope')
-    parser.add_argument('--max_seq_len', type=int, default=512)
-    parser.add_argument('--batch_size_eval', type=int, default=8)
-    parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
+    parser.add_argument("--silver_signal", type=str, help="what we want to predict", choices=['scope', 'cue'], default="scope")
+    parser.add_argument("--max_seq_len", type=int, default=512)
+    parser.add_argument("--batch_size_eval", type=int, default=8)
+    parser.add_argument("--cuda", type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
     parser.add_argument("--checkpoint", default='checkpoint/nubes/best_model/model_best.pt', type=str)
-    parser.add_argument('--sids', type=bool_flag, default=False,
+    parser.add_argument("--sids", type=bool_flag, default=False,
                         help='Indicates if data contains sentence ids')
     parser.add_argument("--setting", type=str, default='augment')
     args = parser.parse_args()
+    print(args)
     main(args)

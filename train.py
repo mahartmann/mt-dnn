@@ -4,12 +4,12 @@ import argparse
 import json
 import os
 import uuid
-import random
 from datetime import datetime
 from pprint import pprint
-import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader, BatchSampler
+from torch.utils.data import DataLoader
+
+from my_utils import bool_flag
 from pretrained_models import *
 from tensorboardX import SummaryWriter
 #from torch.utils.tensorboard import SummaryWriter
@@ -21,16 +21,6 @@ from data_utils.utils import set_environment
 from mt_dnn.batcher import SingleTaskDataset, MultiTaskDataset, Collater, MultiTaskBatchSampler
 from mt_dnn.model import MTDNNModel
 import test_config
-
-def bool_flag(s):
-    """
-    Parse boolean arguments from the command line.
-    """
-    if s.lower() in ['off', 'false', '0']:
-        return False
-    if s.lower() in ['on', 'true', '1']:
-        return True
-    raise argparse.ArgumentTypeError("invalid value for a boolean flag (0 or 1)")
 
 
 def model_config(parser):
