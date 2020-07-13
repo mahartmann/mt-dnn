@@ -160,11 +160,9 @@ class SANBertNetwork(nn.Module):
         self.apply(init_weights)
 
     def encode(self, task_id, input_ids, token_type_ids, attention_mask, additional_features):
-        if additional_features is None:
-
+        if len(additional_features) == 0:
             outputs = self.bert(input_ids=input_ids, token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask)
-
         else:
             # get embeddings
 
@@ -203,7 +201,7 @@ class SANBertNetwork(nn.Module):
         return embeddings
 
 
-    def forward(self, input_ids, token_type_ids, attention_mask,  premise_mask=None, hyp_mask=None, task_id=0, additional_features=None):
+    def forward(self, input_ids, token_type_ids, attention_mask,  premise_mask=None, hyp_mask=None, task_id=0, additional_features=[]):
         sequence_output, pooled_output = self.encode(task_id, input_ids, token_type_ids, attention_mask, additional_features=additional_features)
 
         decoder_opt = self.decoder_opt[task_id]
