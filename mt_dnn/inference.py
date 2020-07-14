@@ -24,7 +24,7 @@ def extract_encoding(model, data, use_cuda=True):
 
     return torch.cat(new_sequence_outputs)
 
-def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_mapper=None, task_type=TaskType.Classification):
+def eval_model(model, data, metric_meta, dataset, use_cuda=True, with_label=True, label_mapper=None, task_type=TaskType.Classification):
     if use_cuda:
         model.cuda()
     predictions = []
@@ -49,5 +49,5 @@ def eval_model(model, data, metric_meta, use_cuda=True, with_label=True, label_m
         golds = squad_utils.merge_answers(ids, golds)
         predictions, scores = squad_utils.select_answers(ids, predictions, scores)
     if with_label:
-        metrics = calc_metrics(metric_meta, golds, predictions, scores, label_mapper)
+        metrics = calc_metrics(metric_meta, golds, predictions, scores, dataset, label_mapper)
     return metrics, predictions, scores, golds, ids

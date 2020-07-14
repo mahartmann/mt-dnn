@@ -57,27 +57,40 @@ def compute_seqacc(predicts, labels, label_mapper):
     report = classification_report(y_true, y_pred,digits=4)
     return report
 
-def compute_pcs(predicts, labels, label_mapper):
+cue_in_scope = {'iulajoint': False,
+                'biojoint': True}
+
+def compute_pcs(predicts, labels, label_mapper, dataset):
     """
-    compute correctly predicted full spans
+    compute correctly predicted full spans. If cues and scopes are predicted jointly, convert cue labels to I/O labels depending on the
+    annotation scheme for the considered dataset
     :param predicts:
     :param labels:
     :return:
     """
-    def trim(predict, label):
+    def trim_and_convert(predict, label, label_mapper, dataset):
         temp_1 = []
         temp_2 = []
         for j, m in enumerate(predict):
             if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
                 temp_1.append(label_mapper[label[j]])
                 temp_2.append(label_mapper[m])
+        if 'joint' in dataset:
+            if cue_in_scope[dataset] is True:
+                replacement= 'I'
+            else: replacement = 'O'
+            for j, m in enumerate(temp_1):
+                if m == 'C':
+                    temp_1[j] = replacement
+            for j, m in enumerate(temp_2):
+                if m == 'C':
+                    temp_2[j] = replacement
         return temp_2, temp_1
 
     tp = 0.
 
     for predict, label in zip(predicts, labels):
-        predict, label = trim(predict, label)
-
+        predict, label = trim_and_convert(predict, label, label_mapper,dataset)
         if predict == label:
 
             tp += 1
@@ -180,6 +193,8 @@ def compute_emf1(predicts, labels):
     return evaluate_func(labels, predicts)
 
 
+
+
 class Metric(Enum):
     ACC = 0
     F1 = 1
@@ -224,7 +239,7 @@ METRIC_FUNC = {
 }
 
 
-def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
+def calc_metrics(metric_meta, golds, predictions, scores, dataset, label_mapper=None):
     """Label Mapper is used for NER/POS etc. 
     TODO: a better refactor, by xiaodl
     """
@@ -237,7 +252,7 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
         elif mm == Metric.SeqEval:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.PCS:
-            metric = metric_func(predictions, golds, label_mapper)
+            metric = metric_func(predictions, golds, label_mapper, dataset)
         elif mm == Metric.CLUEF:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.SCOPEP or mm == Metric.SCOPER or mm == Metric.SCOPEF:
@@ -258,11 +273,8 @@ def calc_metrics(metric_meta, golds, predictions, scores, label_mapper=None):
 
 
 if __name__=="__main__":
-    pred = [0,1,1,1,1,1]
-    gold = [0,1,1,0,1,1]
-    #pred = ['I' if elm == '1' else 'O' for elm in pred]
-    #gold = ['I' if elm == '1' else 'O' for elm in gold]
-    preds = [pred,pred]
-    golds = [gold, gold]
-    res  = compute_scope_prf(preds, golds, label_mapper={'O':0, 0:'O', 'I':1, 1:'I'})
-    print(res)
+    pred = [[0,1,1,2,1,1]]
+    gold = [[0,1,1,0,2,1]]
+    dataset= 'biojoint'
+    label_mapper = {0: 'I', 1: 'O', 2:'C'}
+    compute_pcs(pred, gold, label_mapper, dataset)
