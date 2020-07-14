@@ -74,9 +74,9 @@ def data_config(parser):
                         default='/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased')
     parser.add_argument('--data_sort_on', action='store_true')
     parser.add_argument('--name', default='farmer')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugsssilverscope_task_def.yml")
-    parser.add_argument('--train_datasets', default='drugsssilverscopes')
-    parser.add_argument('--test_datasets', default='drugsssilverscopes')
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugs_task_def.yml")
+    parser.add_argument('--train_datasets', default='drugss,bio')
+    parser.add_argument('--test_datasets', default='drugss')
     parser.add_argument('--load_intermed', default=False, type=bool_flag)
     parser.add_argument('--freeze', default=False, type=bool_flag, help ='freeze encoder layers')
 
@@ -129,7 +129,7 @@ def train_config(parser):
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--bert_l2norm', type=float, default=0.0)
     parser.add_argument('--scheduler_type', type=str, default='ms', help='ms/rop/exp')
-    parser.add_argument('--output_dir', default='checkpoint/nubes_intermed')
+    parser.add_argument('--output_dir', default='checkpoint/drugs')
     parser.add_argument('--seed', type=int, default=2018,
                         help='random seed for data shuffling, embedding init, etc.')
     parser.add_argument('--grad_accumulation_step', type=int, default=1)
@@ -390,6 +390,7 @@ def main():
                 with torch.no_grad():
                     dev_metrics, dev_predictions, scores, golds, dev_ids= eval_model(model,
                                                                                     dev_data,
+                                                                                     dataset=prefix,
                                                                                     metric_meta=task_def.metric_meta,
                                                                                     use_cuda=args.cuda,
                                                                                     label_mapper=label_dict,
@@ -420,7 +421,7 @@ def main():
             test_data = test_data_list[idx]
             if test_data is not None:
                 with torch.no_grad():
-                    test_metrics, test_predictions, scores, golds, test_ids= eval_model(model, test_data,
+                    test_metrics, test_predictions, scores, golds, test_ids= eval_model(model, test_data, dataset=prefix,
                                                                                         metric_meta=task_def.metric_meta,
                                                                                         use_cuda=args.cuda, with_label=True,
                                                                                         label_mapper=label_dict,
