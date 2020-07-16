@@ -59,7 +59,8 @@ def compute_seqacc(predicts, labels, label_mapper):
 
 cue_in_scope = {'iulajoint': False,
                 'iulaequaljoint': False,
-                'biojoint': True}
+                'biojoint': True,
+                'bioequaljoint': True}
 
 def compute_pcs(predicts, labels, label_mapper, dataset):
     """
