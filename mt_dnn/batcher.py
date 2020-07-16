@@ -4,6 +4,7 @@ import sys
 import json
 import torch
 import random
+import logging
 import numpy as np
 from shutil import copyfile
 from data_utils.task_def import TaskType, DataFormat
@@ -17,6 +18,8 @@ from collections import Counter
 
 UNK_ID=100
 BOS_ID=101
+
+logger = logging.getLogger(__name__)
 
 class MultiTaskBatchSampler(BatchSampler):
 
@@ -66,12 +69,12 @@ class MultiTaskBatchSampler(BatchSampler):
             tids = [elm for elm in all_indices]
         else:
             tids = [elm[0] for elm in all_indices]
-        print(
+        logger.info(
             'Epoch {}, annealed sampling factor {}, alpha={}'.format(self.current_epoch, self.annealed_sampling_factor,
                                                                      alpha))
         c = Counter(tids)
         for key, val in c.most_common():
-            print('{:.2f}% ({}) of sampled batches for task {}'.format(val/np.sum([elm for elm in c.values()])*100, val, key))
+            logger.info('{:.2f}% ({}) of sampled batches for task {}'.format(val/np.sum([elm for elm in c.values()])*100, val, key))
 
 
 
@@ -225,7 +228,7 @@ class SingleTaskDataset(Dataset):
                         continue
                 data.append(sample)
 
-            print('Loaded {} samples out of {}'.format(len(data), cnt))
+            logger.info('Loaded {} samples out of {}'.format(len(data), cnt))
 
         return data, None
 

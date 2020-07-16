@@ -34,7 +34,7 @@ class MTDNNModel(object):
 
 
         if opt['load_intermed']:
-            print('removing scoring layers')
+            logger.info('Removing scoring layers from pretrained model')
             state_dict = self.remove_scoring_layers_from_state_dict(state_dict)
 
         if state_dict:

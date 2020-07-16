@@ -321,7 +321,7 @@ def main():
         model.load(args.model_ckpt)
 
     if opt['freeze']:
-        print('freezing encoder')
+        logger.info('freezing encoder')
         model._freeze_encoder()
     #### model meta str
     headline = '############# Model Arch of MT-DNN #############'
