@@ -61,6 +61,8 @@ cue_in_scope = {'iulajoint': False,
                 'iulaequaljoint': False,
                 'biojoint': True,
                 'bioequaljoint': True,
+                'sfuesjoint': True,
+                'sfuesequaljoint': True,
                 'nubesjoint': False,
                 'nubesequaljoint': False}
 
