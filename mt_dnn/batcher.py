@@ -5,6 +5,7 @@ import json
 import torch
 import random
 import logging
+from data_utils.log_wrapper import create_logger
 import numpy as np
 from shutil import copyfile
 from data_utils.task_def import TaskType, DataFormat
@@ -15,6 +16,7 @@ from experiments.exp_def import TaskDef
 from experiments.mlm.mlm_utils import truncate_seq_pair, load_loose_json
 from experiments.mlm.mlm_utils import create_instances_from_document, create_masked_lm_predictions
 from collections import Counter
+
 
 UNK_ID=100
 BOS_ID=101
