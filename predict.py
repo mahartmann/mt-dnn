@@ -43,7 +43,7 @@ parser.add_argument('--max_seq_len', type=int, default=512)
 parser.add_argument('--batch_size_eval', type=int, default=8)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
-parser.add_argument("--checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/scope/best_model/model_best.pt', type=str)
+parser.add_argument("--checkpoint", default='/home/mareike/PycharmProjects/negscope/code/mt-dnn/checkpoint/nubes/best_model/model_best.pt', type=str)
 
 
 
@@ -84,7 +84,7 @@ test_data = DataLoader(test_data_set, batch_size=args.batch_size_eval, collate_f
 with torch.no_grad():
     test_metrics, test_predictions, scores, golds, test_ids = eval_model(model, test_data, label_mapper=task_def.label_vocab,
                                                                          metric_meta=metric_meta,
-                                                                         use_cuda=args.cuda, with_label=args.with_label)
+                                                                         use_cuda=args.cuda, with_label=args.with_label,dataset=prefix)
 
     results = {'metrics': test_metrics, 'predictions': test_predictions, 'uids': test_ids, 'scores': scores}
     #print(results)
