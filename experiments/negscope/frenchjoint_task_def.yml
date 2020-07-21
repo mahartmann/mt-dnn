@@ -1,4 +1,4 @@
-frenchjoint:
+frenchequaljoint:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -24,3 +24,20 @@ frenchjoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
+udfr:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - '0'
+  - '1'
+  metric_meta:
+  - PRF
+  n_class: 2
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification

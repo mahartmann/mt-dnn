@@ -64,7 +64,9 @@ cue_in_scope = {'iulajoint': False,
                 'sfuesjoint': True,
                 'sfuesequaljoint': True,
                 'nubesjoint': False,
-                'nubesequaljoint': False}
+                'nubesequaljoint': False,
+                'frenchjoint': False,
+                'frenchequaljoint': False}
 
 def compute_pcs(predicts, labels, label_mapper, dataset):
     """
