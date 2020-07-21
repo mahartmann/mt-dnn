@@ -83,11 +83,16 @@ class MultiTaskBatchSampler(BatchSampler):
     @staticmethod
     def _gen_task_indices(train_data_list, mix_opt, extra_task_ratio, annealed_sampling_factor, current_epoch, max_epochs):
         all_indices = []
+        num_updates = int(np.sum([len(train_data_list[i]) for i in range(len(train_data_list))]))
         if annealed_sampling_factor > 0:
             #  compute alpha for annealed sampling according to Stickland and Murray 2019
             alpha = 1 - annealed_sampling_factor*((current_epoch-1.)/(max_epochs-1.))
+            # factor used to make control the total number of updates
+            scaling_factor = int(np.ceil(float(num_updates)/np.sum([len(train_data_list[i])**alpha for i in range(len(train_data_list))])))
             for i in range(1, len(train_data_list)):
-                _all_task_indices = [i] * int(np.ceil(len(train_data_list[i])**alpha))
+                print('train data list {} has {} samples'.format(i, len(train_data_list[i])))
+                _all_task_indices = [i] * int(np.ceil(len(train_data_list[i])**alpha)) * scaling_factor
+                print('_all task indices {} has {} samples'.format(i, len(_all_task_indices)))
                 _all_batch_indices = []
                 tid = 0
                 for elm in _all_task_indices:
@@ -97,13 +102,15 @@ class MultiTaskBatchSampler(BatchSampler):
                     _all_batch_indices.append(tid)
                     tid += 1
                 all_indices += [(tid, bid) for tid,bid in zip(_all_task_indices, _all_batch_indices)]
+                print('task {} has {} samples'.format(i, len(all_indices)))
             if mix_opt > 0:
                 random.shuffle(all_indices)
-            _all_task_indices = [0] * int(np.ceil(len(train_data_list[0]) ** alpha))
+            _all_task_indices = [0] * int(np.ceil(len(train_data_list[0]) ** alpha)) * scaling_factor
             _all_batch_indices = []
+            print('task 0 has {} samples'.format(i, len(_all_task_indices)))
             tid = 0
             for elm in _all_task_indices:
-                # append from start if the end is reached (this is approximates shuffling with replacement)
+                # append from start if the end is reached (this approximates shuffling with replacement)
                 if tid >= len(train_data_list[0]):
                     tid = 0
                 _all_batch_indices.append(tid)
@@ -115,6 +122,7 @@ class MultiTaskBatchSampler(BatchSampler):
             num_updates = int(np.sum([len(train_data_list[i]) for i in range(len(train_data_list))]))
             all_indices = all_indices[:num_updates+1]
 
+            print('Num updates {}'.format(num_updates))
         elif len(train_data_list) > 1 and extra_task_ratio > 0:
             main_indices = [0] * len(train_data_list[0])
             extra_indices = []
