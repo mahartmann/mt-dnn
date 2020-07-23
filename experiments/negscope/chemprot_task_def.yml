@@ -1,0 +1,21 @@
+chemprot:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - 'CPR:3'
+  - 'CPR:4'
+  - 'CPR:5'
+  - 'CPR:6'
+  - 'CPR:9'
+  metric_meta:
+  - PRF
+  - PRFReport
+  n_class: 5
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
