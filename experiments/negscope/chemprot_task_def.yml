@@ -9,10 +9,11 @@ chemprot:
   - 'CPR:5'
   - 'CPR:6'
   - 'CPR:9'
+  - 'false'
   metric_meta:
   - PRF
   - PRFReport
-  n_class: 5
+  n_class: 6
   loss: CeCriterion
   split_names:
   - train

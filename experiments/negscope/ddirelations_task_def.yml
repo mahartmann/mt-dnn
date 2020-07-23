@@ -8,6 +8,7 @@ ddirelations:
   - 'DDI-effect'
   - 'DDI-int'
   - 'DDI-mechanism'
+  - 'DDI-false'
   metric_meta:
   - PRF
   - PRFReport
