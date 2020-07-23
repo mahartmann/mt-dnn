@@ -6,7 +6,6 @@ ddirelations:
   labels:
   - 'DDI-advise'
   - 'DDI-effect'
-  - 'DDI-false'
   - 'DDI-int'
   - 'DDI-mechanism'
   metric_meta:
