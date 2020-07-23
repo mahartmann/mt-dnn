@@ -178,22 +178,45 @@ def compute_clue_f(predicts, labels, label_mapper):
     return f[2][0]
 
 
-def compute_p_r_f_multi(predicts, labels, label_mapper):
-    label_strings = []
-    label_idxs = []
-    for key, val in label_mapper.tok2ind.items():
-        label_strings.append(key)
-        label_idxs.append(val)
-    f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
-    return f['macro avg']['f1-score']
+def compute_p_r_f_multi(predicts, labels, label_mapper, dataset):
+    f = compute_p_r_f_multi_report(predicts, labels, label_mapper, dataset)
+    if dataset == 'chemprot' or dataset == 'ddirelations':
+        return f['subset']['micro avg']['f1-score']
+    else:
+        return f['macro avg']['f1-score']
 
-def compute_p_r_f_multi_report(predicts, labels, label_mapper):
+def compute_p_r_f_subset(predict, labels, label_mapper, dataset):
+    """
+    computed prf average scores over a subset of labelset depending on the dataset
+    """
+    predict_filtered = []
+    gold_filtered = []
+    if dataset == 'chemprot':
+        excluded_label = 'false'
+    elif dataset == 'ddirelations':
+        excluded_label = 'DDI-false'
+    gold_filtered = [labels[i] for  i, elm in enumerate(labels) if label_mapper[elm] != excluded_label]
+    predict_filtered = [predict[i] for i, elm in enumerate(labels) if label_mapper[elm] != excluded_label]
+    assert len(predict_filtered) == len(gold_filtered)
+    label_strings = []
+    label_idxs = []
+    for key, val in label_mapper.tok2ind.items():
+        if key != excluded_label:
+            label_strings.append(key)
+            label_idxs.append(val)
+    return predict_filtered, gold_filtered, label_idxs, label_strings
+
+def compute_p_r_f_multi_report(predicts, labels, label_mapper, dataset):
     label_strings = []
     label_idxs = []
     for key, val in label_mapper.tok2ind.items():
         label_strings.append(key)
         label_idxs.append(val)
     f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
+    if dataset == 'chemprot' or dataset == 'ddirelations':
+        filtered_preds, filtered_gold, filtered_label_idxs, filtered_label_strings = compute_p_r_f_subset(predicts, labels, label_mapper, dataset)
+        f_subset = classification_report_sklearn(y_true=filtered_gold, y_pred=filtered_preds, labels=filtered_label_idxs, target_names=filtered_label_strings, output_dict=True)
+        f['subset'] = f_subset
     return f
 
 
@@ -268,9 +291,9 @@ def calc_metrics(metric_meta, golds, predictions, scores, dataset, label_mapper=
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
         elif mm == Metric.PRF:
-            metric = metric_func(predictions, golds, label_mapper)
+            metric = metric_func(predictions, golds, label_mapper, dataset)
         elif mm == Metric.PRFReport:
-            metric = metric_func(predictions, golds, label_mapper)
+            metric = metric_func(predictions, golds, label_mapper, dataset)
         else:
             if mm == Metric.AUC:
                 assert len(scores) == 2 * len(golds), "AUC is only valid for binary classification problem"
@@ -281,8 +304,17 @@ def calc_metrics(metric_meta, golds, predictions, scores, dataset, label_mapper=
 
 
 if __name__=="__main__":
-    pred = [[0,1,1,2,1,1]]
-    gold = [[0,1,1,0,2,1]]
-    dataset= 'biojoint'
-    label_mapper = {0: 'I', 1: 'O', 2:'C'}
-    compute_pcs(pred, gold, label_mapper, dataset)
+    from data_utils import vocab
+    pred = [0,1,2,3,4,5,5,5]
+    gold = [0,1,2,3,4,5,3,3]
+    dataset= 'chemprot'
+    _label_mapper = {0: 'CPR:3', 1: 'CPR:4', 2: 'CPR:5', 3: 'CPR:6', 4: 'CPR:9', 5: 'false'}
+    label_mapper = vocab.Vocabulary(neat=True)
+    for key in range(6):
+        label_mapper.add(_label_mapper[key])
+    f = compute_p_r_f_multi(pred, gold, label_mapper, dataset)
+    report = compute_p_r_f_multi_report(pred, gold, label_mapper, dataset)
+    print(f)
+    for key, val in report.items():
+        print(key, val)
+
