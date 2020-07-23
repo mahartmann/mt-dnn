@@ -1,0 +1,21 @@
+ddirelations:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - 'DDI-advise'
+  - 'DDI-effect'
+  - 'DDI-false'
+  - 'DDI-int'
+  - 'DDI-mechanism'
+  metric_meta:
+  - PRF
+  - PRFReport
+  n_class: 5
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
