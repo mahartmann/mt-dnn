@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import torch
+import configparser
 from torch.utils.data import DataLoader
 from transformers import BertModel, BertTokenizer
 from data_utils.task_def import TaskType
@@ -14,6 +15,7 @@ from mt_dnn.inference import eval_model
 from preprocessing.annotation_reader import get_clue_annotated_data
 from preprocessing.data_splits import write_split
 from my_utils import bool_flag
+from prepro_std import setup_customized_tokenizer
 
 
 def dump(path, data):
@@ -102,7 +104,12 @@ def main(args):
     config["cuda"] = args.cuda
     model = MTDNNModel(config, state_dict=state_dict)
     model.load(checkpoint_path)
-    tokenizer = BertTokenizer.from_pretrained(args.tokenizer)
+
+    cfg = args.config
+    file_config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    file_config.read(cfg)
+
+    tokenizer = setup_customized_tokenizer(model=args.tokenizer, config=file_config, tokenizer_class=BertTokenizer, do_lower_case=args.do_lower_case )
     encoder_type = config.get('encoder_type', EncoderModelType.BERT)
 
     test_data_set = SingleTaskDataset(args.prep_input, False, maxlen=args.max_seq_len, task_id=args.task_id, task_def=task_def)
@@ -330,9 +337,9 @@ if __name__=="__main__":
     parser.add_argument("--task_id", type=int, help="the id of this task when training")
     parser.add_argument("--tokenizer", type=str, default="bert-base-multilingual-cased")
     parser.add_argument("--prep_input", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased/drugss_test.json")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased/ddirelations_test.json")
     parser.add_argument("--outfile", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/drugsspan1_test.tsv")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/ddirelationssilverspan1_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
     parser.add_argument("--silver_signal", type=str, help="what we want to predict", choices=['scope', 'cue', 'span1', 'span2', 'span3'], default="span1")
@@ -343,7 +350,9 @@ if __name__=="__main__":
     parser.add_argument("--checkpoint", default='checkpoint/nubes/best_model/model_best.pt', type=str)
     parser.add_argument("--sids", type=bool_flag, default=False,
                         help='Indicates if data contains sentence ids')
+    parser.add_argument("--do_lower_case", type=bool_flag, default=False)
     parser.add_argument("--setting", type=str, default='augment')
+    parser.add_argument('--config', type=str, default='preprocessing/config.cfg')
     args = parser.parse_args()
     print(args)
     main(args)
