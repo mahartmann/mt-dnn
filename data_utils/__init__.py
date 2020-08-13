@@ -19,7 +19,7 @@ def load_data(file_path, task_def, json_format=True):
 
             if data_format == DataFormat.PremiseOnly:
                 row = {"uid": d['uid'], "label": d['labels'], "premise": d['seq']}
-                if get_additional_feature_names(task_def['additional_features']):
+                if get_additional_feature_names(task_def['additional_features'])[0] is not None:
                     for additional_features in get_additional_feature_names(task_def['additional_features']):
                         row[additional_features] = d[additional_features]
             elif data_format == DataFormat.Seqence:

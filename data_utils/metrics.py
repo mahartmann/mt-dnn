@@ -105,39 +105,49 @@ def compute_pcs(predicts, labels, label_mapper, dataset):
 
     return tp/len(predicts)
 
-def compute_scope_p(predicts, labels, label_mapper):
-    return compute_scope_prf(predicts, labels, label_mapper, metric='p')
+def compute_scope_p(predicts, labels, label_mapper, dataset):
+    return compute_scope_prf(predicts, labels, label_mapper, dataset, metric='p')
 
-def compute_scope_r(predicts, labels, label_mapper):
-    return compute_scope_prf(predicts, labels, label_mapper, metric='r')
+def compute_scope_r(predicts, labels, label_mapper, dataset):
+    return compute_scope_prf(predicts, labels, label_mapper, dataset, metric='r')
 
-def compute_scope_f(predicts, labels, label_mapper):
-    return compute_scope_prf(predicts, labels, label_mapper, metric='f')
+def compute_scope_f(predicts, labels, label_mapper, dataset):
+    return compute_scope_prf(predicts, labels, label_mapper, dataset, metric='f')
 
-def compute_scope_prf(predicts, labels, label_mapper, metric='f'):
+def compute_scope_prf(predicts, labels, label_mapper, dataset, metric='f'):
     """
     compute correctly predicted full spans
     :param predicts:
     :param labels:
     :return:
     """
-    def trim(predict, label):
+    def trim_and_convert(predict, label, label_mapper, dataset):
         temp_1 = []
         temp_2 = []
         for j, m in enumerate(predict):
             if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
                 temp_1.append(label_mapper[label[j]])
                 temp_2.append(label_mapper[m])
+        if 'joint' in dataset:
+            if cue_in_scope[dataset] is True:
+                replacement = 'I'
+            else:
+                replacement = 'O'
+            for j, m in enumerate(temp_1):
+                if m == 'C':
+                    temp_1[j] = replacement
+            for j, m in enumerate(temp_2):
+                if m == 'C':
+                    temp_2[j] = replacement
         return temp_2, temp_1
 
 
     y_gold = []
     y_pred = []
     for predict, label in zip(predicts, labels):
-        predict, label = trim(predict, label)
+        predict, label = trim_and_convert(predict, label, label_mapper, dataset)
         y_gold.extend(label)
         y_pred.extend(predict)
-
 
     prf = precision_recall_fscore_support(y_gold, y_pred, labels=['I', 'O'])
 
@@ -147,6 +157,50 @@ def compute_scope_prf(predicts, labels, label_mapper, metric='f'):
     if metric == 'f': return f
     elif metric == 'p': return p
     elif metric == 'r': return r
+
+
+def compute_cue_f_seq(predicts, labels, label_mapper, dataset, metric='f'):
+    """
+    compute correctly predicted full spans
+    :param predicts:
+    :param labels:
+    :return:
+    """
+
+    def trim_and_convert(predict, label, label_mapper, dataset):
+        temp_1 = []
+        temp_2 = []
+        for j, m in enumerate(predict):
+            if label_mapper[label[j]] != 'X' and label_mapper[label[j]] != 'CLS' and label_mapper[label[j]] != 'SEP':
+                temp_1.append(label_mapper[label[j]])
+                temp_2.append(label_mapper[m])
+
+        for j, m in enumerate(temp_1):
+            if m != 'C':
+                temp_1[j] = '0'
+        for j, m in enumerate(temp_2):
+            if m != 'C':
+                temp_2[j] = '0'
+        return temp_2, temp_1
+
+    y_gold = []
+    y_pred = []
+    for predict, label in zip(predicts, labels):
+        predict, label = trim_and_convert(predict, label, label_mapper, dataset)
+        y_gold.extend(label)
+        y_pred.extend(predict)
+
+    prf = precision_recall_fscore_support(y_gold, y_pred, labels=['C'])
+
+    p = prf[0][0]
+    r = prf[1][0]
+    f = prf[2][0]
+    if metric == 'f':
+        return f
+    elif metric == 'p':
+        return p
+    elif metric == 'r':
+        return r
 
 
 
@@ -174,7 +228,6 @@ def compute_clue_f(predicts, labels, label_mapper):
         y_pred.extend(predict)
 
     f = precision_recall_fscore_support(y_gold, y_pred, labels=['1','0'])
-    #return 'P:{:.4f} R: {:.4f} F:{:.4f} Support: {}'.format(f[0][1], f[1][1], f[2][1], f[3][1])
     return f[2][0]
 
 
@@ -244,6 +297,7 @@ class Metric(Enum):
     SCOPEF = 15
     PRF = 16
     PRFReport = 17
+    CUEF_SEQ = 18
 
 
 
@@ -265,8 +319,8 @@ METRIC_FUNC = {
     Metric.SCOPER: compute_scope_r,
     Metric.SCOPEF: compute_scope_f,
     Metric.PRF: compute_p_r_f_multi,
-    Metric.PRFReport: compute_p_r_f_multi_report
-
+    Metric.PRFReport: compute_p_r_f_multi_report,
+    Metric.CUEF_SEQ: compute_cue_f_seq
 }
 
 
@@ -287,7 +341,9 @@ def calc_metrics(metric_meta, golds, predictions, scores, dataset, label_mapper=
         elif mm == Metric.CLUEF:
             metric = metric_func(predictions, golds, label_mapper)
         elif mm == Metric.SCOPEP or mm == Metric.SCOPER or mm == Metric.SCOPEF:
-            metric = metric_func(predictions, golds, label_mapper)
+            metric = metric_func(predictions, golds, label_mapper, dataset)
+        elif mm == Metric.CUEF_SEQ:
+            metric = metric_func(predictions, golds, label_mapper, dataset)
         elif mm == Metric.EmF1:
             metric = metric_func(predictions, golds)
         elif mm == Metric.PRF:

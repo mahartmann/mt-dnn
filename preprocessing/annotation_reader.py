@@ -1,11 +1,9 @@
+from preprocessing.downstream_tasks import read_drugs, read_gad, read_biorelex, read_cdr, read_ade_doc, read_ddi_relations, read_chemprot_relations
 from preprocessing.nested_xml import dfs, dfs3, build_surface, build_surface_ddi
 from preprocessing.data_splits import *
 import xml.etree.ElementTree as ET
 import itertools
 import os
-import csv
-import json
-from preprocessing import clue_detection
 
 import spacy
 from spacy.matcher import Matcher
@@ -28,7 +26,7 @@ def make_directory(path):
     return
 
 
-def read_bioscope(fname, setting='augment', cue_type='negation'):
+def read_bioscope(fname, setting='augment', cue_type='negation', include_all=False):
     root = ET.parse(fname).getroot()
     data = []
     cue_data = []
@@ -59,6 +57,10 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                             get_label(elm[1]).startswith('cue-{}'.format(cue_type))])
                 print('Labels: {}'.format(cids))
                 sent_data = []
+
+                if include_all and len(cids) == 0:
+                    print("################## This sentence has no negation. Adding to ds")
+                    cids = [None]
 
                 for cid in cids:
                     toks = []
@@ -107,6 +109,8 @@ def read_bioscope(fname, setting='augment', cue_type='negation'):
                     data.append(sent_data)
                     # get clue annotated data
                     cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 def get_clue_annotated_data(sent_data):
@@ -125,7 +129,7 @@ def get_clue_annotated_data(sent_data):
     return [labels, seq]
 
 
-def read_sherlock(fname, setting='augment'):
+def read_sherlock(fname, setting='augment', include_all=False):
     lines = read_file(fname)
     sents = {}
     for line in lines:
@@ -165,7 +169,9 @@ def read_sherlock(fname, setting='augment'):
                 tid2cues.setdefault(tid, set()).add(str(nid))
         negations = tid2neg.values()
         negations = list(set(list(itertools.chain.from_iterable([list(elm) for elm in negations]))))
-
+        if include_all and len(negations) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            negations = [None]
         if len(negations) > 0:
             print('\n')
             print(negations)
@@ -201,23 +207,25 @@ def read_sherlock(fname, setting='augment'):
             if len(sent_data) > 0:
                 data.append(sent_data)
                 cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 
 
-def read_IULA(path, setting='augment'):
-    fs = set([elm for elm in os.listdir(path) if elm.endswith('.txt')])
+def read_IULA(path, setting='augment', include_all=False):
+    fs = sorted(list(set([elm for elm in os.listdir(path) if elm.endswith('.txt')])))
     fnames = ['{}/{}'.format(path, f) for f in fs]
     anno_names = ['{}/{}.ann'.format(path, f.split('.txt')[0]) for f in fs]
     data = []
     cue_data = []
     for fname, anno_name in zip(fnames, anno_names):
-        data_ex, cue_data_ex = read_IULA_doc(fname, anno_name, setting)
+        data_ex, cue_data_ex = read_IULA_doc(fname, anno_name, setting, include_all=include_all)
         data.extend(data_ex)
         cue_data.extend(cue_data_ex)
     return data, cue_data
 
-def read_IULA_doc(fname_txt, fname_anno, setting):
+def read_IULA_doc(fname_txt, fname_anno, setting, include_all):
     class Token(object):
         def __init__(self, start, end, surf, tid):
             self.c_start = start
@@ -228,12 +236,19 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
         def set_label(self, label):
             self.label = label
 
+        def __lt__(self, other):
+            val1 = self.c_start + self.c_end
+            val2 = other.c_start + other.c_end
+            if val1 < val2:
+                return 1
+            else:
+                return -1
+
     data = []
     cue_data = []
     tid2tok = {}
     span2tok = {}
 
-    print(fname_txt)
     anno_lines = read_file(fname_anno)
 
     def read_file_wn(fname):
@@ -339,7 +354,6 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
     sent = []
 
     for surf, span in surf2span:
-
         if '\n' in surf:
             sent.append((surf.strip('\n'), span))
             sents.append(sent)
@@ -348,7 +362,6 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             sent.append((surf, span))
 
     for sent in sents:
-
         tok2labels = []
 
         for surf, span in sent:
@@ -356,20 +369,24 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             if surf != '':
                 labels = []
                 if span in span2r:
-                    labels.extend(['{}:{}:{}'.format(elm[3], elm[1], elm[2]) for elm in span2r[span]])
+                    labels.extend(['{}:{}:{}'.format(elm[3], elm[1], elm[2]) for elm in sorted(span2r[span])])
 
                 if span in span2tok:
-                    labels.extend(['{}:_{}'.format(elm.tid, elm.label) for elm in span2tok[span]])
+                    labels.extend(['{}:_{}'.format(elm.tid, elm.label) for elm in sorted(span2tok[span])])
                 else:
                     labels.append('Unlabeled')
                 tok2labels.append((surf, set(labels)))
         sent_labels = set()
         for _, labels in tok2labels:
-            for label in labels:
+            for label in sorted(labels):
                 if label.split(':')[-1].startswith('R'):
                     sent_labels.add(label.split(':')[-1])
         sent_data = []
-        for sent_label in sent_labels:
+        if include_all and len(sent_labels) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            sent_labels = [None]
+
+        for sent_label in sorted(sent_labels):
             print('\n')
             print(sent_label)
             out_toks = []
@@ -378,7 +395,7 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
             for tok, labels in tok2labels:
                 is_cue = 0
                 def tok2sent_labels(labels):
-                    return set([label.split(':')[-1] for label in labels if label.split(':')[-1].startswith('R')])
+                    return set([label.split(':')[-1] for label in sorted(labels) if label.split(':')[-1].startswith('R')])
 
 
                 if sent_label in tok2sent_labels(labels):
@@ -398,22 +415,40 @@ def read_IULA_doc(fname_txt, fname_anno, setting):
                 cue_labelseq.append(is_cue)
 
             sent_data.append([out_labels, out_toks, cue_labelseq])
+            print('cue labelseq {}'.format(cue_labelseq))
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
-def read_sfu_en(path, setting='augment'):
+def join_cue_and_scope_labels(data):
+    joined_data = []
+    for sents in data:
+        joined_sents = []
+        for sent in sents:
+            for i, cue_label in enumerate(sent[2]):
+
+                 labels = sent[0]
+                 toks = sent[1]
+                 if cue_label == 1:
+                     labels[i] = 'C'
+            joined_sents.append([labels, toks, sent[2]])
+        joined_data.append(joined_sents)
+    return joined_data
+
+def read_sfu_en(path, setting='augment',include_all=False):
     data = []
     cue_data = []
     for topic in [elm for elm in os.listdir(path) if os.path.isdir(os.path.join(path, elm))]:
         for fname in [os.path.join(path, topic, elm) for elm in os.listdir(os.path.join(path, topic))]:
-            data_ex, cue_data_ex = read_sfu_en_doc(fname, setting)
+            data_ex, cue_data_ex = read_sfu_en_doc(fname, setting,include_all=include_all)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
     return data, cue_data
 
-def read_sfu_en_doc(fname, setting):
+def read_sfu_en_doc(fname, setting,include_all):
 
     def get_all_parents(elm, c2p):
         parents = set()
@@ -463,6 +498,9 @@ def read_sfu_en_doc(fname, setting):
             for l in labels:
                 cues.extend([elm for elm in l if 'negation' in elm])
             cues = set(cues)
+            if include_all and len(cues) == 0:
+                print("################## This sentence has no negation. Adding to ds")
+                cues = ['XXX-X']
             if len(cues) > 0:
                 sent_data = []
                 for cue in cues:
@@ -492,21 +530,23 @@ def read_sfu_en_doc(fname, setting):
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 
-def read_sfu_es(path, setting='augment'):
+def read_sfu_es(path, setting='augment', include_all=False):
     data = []
     cue_data = []
     for topic in [elm for elm in os.listdir(path) if os.path.isdir(os.path.join(path, elm))]:
         for fname in [os.path.join(path, topic, elm) for elm in os.listdir(os.path.join(path, topic))]:
-            data_ex, cue_data_ex = read_sfu_es_doc(fname, setting)
+            data_ex, cue_data_ex = read_sfu_es_doc(fname, setting,include_all=include_all)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
     return data, cue_data
 
 
-def read_sfu_es_doc(fname, setting):
+def read_sfu_es_doc(fname, setting,include_all):
 
     def get_label(elm, cneg):
         return '{}-{}'.format(elm.tag, cneg)
@@ -576,6 +616,9 @@ def read_sfu_es_doc(fname, setting):
         scopes = set(scopes)
         print(scopes)
         sent_data = []
+        if include_all and len(scopes) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            scopes = [None]
         for scope in scopes:
             outtoks = []
             outlabels = []
@@ -602,17 +645,19 @@ def read_sfu_es_doc(fname, setting):
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 
-def read_ddi(path, setting='augment'):
+def read_ddi(path, setting='augment', include_all=False):
     skipped = []
     data = []
     cue_data = []
     for fname in ['{}/{}'.format(path, elm) for elm in os.listdir(path) if
                   elm.endswith('_cleaned.xml') and not ' ' in elm]:
         try:
-            data_ex, cue_data_ex = read_ddi_doc(fname, setting)
+            data_ex, cue_data_ex = read_ddi_doc(fname, setting,include_all=include_all)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
         except ET.ParseError:
@@ -623,7 +668,7 @@ def read_ddi(path, setting='augment'):
     return data, cue_data
 
 
-def read_ddi_doc(fname, setting):
+def read_ddi_doc(fname, setting,include_all):
 
     def get_all_parents(node, c2p):
         # retrieve the node and all its parents
@@ -640,73 +685,82 @@ def read_ddi_doc(fname, setting):
         # if True:
         root = ET.parse(fname).getroot()
         for sentence in root.iter('sentence'):
-            for negtags in sentence.iter('negationtags'):
-                negtags.set('id', 'X')
+            negtagss = [elm for elm in sentence.iter('negationtags')]
+            if include_all and len(negtagss) == 0:
+                pass
+            else:
+                for negtags in negtagss:
+                    negtags.set('id', 'X')
 
-                children, p2c, c2p = dfs([], {}, {}, negtags)
-                siblings = dfs3(set(), p2c, c2p, negtags, {}, 0)
-                constituents = build_surface_ddi({}, p2c, c2p, negtags, siblings, 0, 0, 0)
+                    children, p2c, c2p = dfs([], {}, {}, negtags)
+                    siblings = dfs3(set(), p2c, c2p, negtags, {}, 0)
+                    constituents = build_surface_ddi({}, p2c, c2p, negtags, siblings, 0, 0, 0)
 
-                # get sent_tags
-                sent_tags = []
-                for k, v in constituents[negtags]:
-                    sent_tags.extend(
-                        [elm.attrib['id'] for elm in get_all_parents(v, c2p) if elm.attrib['id'] != 'X'])
-                sent_tags = set(sent_tags)
-                sent_data = []
-                for sent_tag in sent_tags:
-                    print('\n{}'.format(sent_tag))
-                    out_toks = []
-                    out_labels = []
-                    cue_labelseq = []
+                    # get sent_tags
+                    sent_tags = []
                     for k, v in constituents[negtags]:
-                        is_cue = 0
-                        if k != None:
-                            k_labels = set(
+                        sent_tags.extend(
+                            [elm.attrib['id'] for elm in get_all_parents(v, c2p) if elm.attrib['id'] != 'X'])
+                    sent_tags = set(sent_tags)
+            sent_data = []
+            if include_all and len(sent_tags) == 0:
+                print("################## This sentence has no negation. Adding to ds")
+                sent_tags = [None]
+            for sent_tag in sent_tags:
+                print('\n{}'.format(sent_tag))
+                out_toks = []
+                out_labels = []
+                cue_labelseq = []
+                for k, v in constituents[negtags]:
+                    is_cue = 0
+                    if k != None:
+                        k_labels = set(
                                     ['{}_{}'.format(elm.attrib['id'], elm.tag) for elm in get_all_parents(v, c2p)])
 
-                            # check if scope
-                            if '{}_xcope'.format(sent_tag) in k_labels:
-                                out_label = 'I'
-                            else:
-                                out_label = 'O'
+                        # check if scope
+                        if '{}_xcope'.format(sent_tag) in k_labels:
+                            out_label = 'I'
+                        else:
+                            out_label = 'O'
 
-                            # check if cue
-                            if '{}_cue'.format(sent_tag) in k_labels:
-                                is_cue = 1
-                                if setting == 'augment':
-                                    print('CUE\t{}'.format(out_label))
-                                    out_toks.append('CUE')
-                                    out_labels.append(out_label)
-                                    cue_labelseq.append(is_cue)
-
-                            for tok in k.split():
-                                print('{}\t{}'.format(tok, out_label))
-                                out_toks.append(tok)
+                        # check if cue
+                        if '{}_cue'.format(sent_tag) in k_labels:
+                            is_cue = 1
+                            if setting == 'augment':
+                                print('CUE\t{}'.format(out_label))
+                                out_toks.append('CUE')
                                 out_labels.append(out_label)
                                 cue_labelseq.append(is_cue)
 
-                    sent_data.append([out_labels, out_toks, cue_labelseq])
-                if len(sent_data) > 0:
-                    data.append(sent_data)
-                    cue_data.append(get_clue_annotated_data(sent_data))
+                        for tok in k.split():
+                            print('{}\t{}'.format(tok, out_label))
+                            out_toks.append(tok)
+                            out_labels.append(out_label)
+                            cue_labelseq.append(is_cue)
+
+                sent_data.append([out_labels, out_toks, cue_labelseq])
+            if len(sent_data) > 0:
+                data.append(sent_data)
+                cue_data.append(get_clue_annotated_data(sent_data))
+        if setting == 'joint':
+            data = join_cue_and_scope_labels(data)
     except ET.ParseError:
         raise ET.ParseError
     return data, cue_data
 
 
-def read_ita(pname, setting='augment'):
+def read_ita(pname, setting='augment',include_all=False):
     data = []
     cue_data = []
     for f in os.listdir(pname):
         fname = os.path.join(pname, f)
-        data_ex, cue_data_ex = read_ita_doc(fname, setting)
+        data_ex, cue_data_ex = read_ita_doc(fname, setting,include_all=include_all)
         data.extend(data_ex)
         cue_data.extend(cue_data_ex)
     return data, cue_data
 
 
-def read_ita_doc(fname, setting):
+def read_ita_doc(fname, setting, include_all):
     data = []
     cue_data = []
     root = ET.parse(fname).getroot()
@@ -746,6 +800,9 @@ def read_ita_doc(fname, setting):
                 sent_labels.extend([elm.split('_')[-1] for elm in tid2anno[tid] if elm.startswith('SCOPE')])
         sent_labels = set(sent_labels)
         sent_data = []
+        if include_all and len(sent_labels) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            sent_labels = [None]
         for scope in sent_labels:
             out_labels = []
             out_toks = []
@@ -780,9 +837,11 @@ def read_ita_doc(fname, setting):
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
-def read_nubes(pname, setting='augment'):
+def read_nubes(pname, setting='augment',include_all=False):
     data = []
     cue_data = []
     for i in range(1, 10):
@@ -790,12 +849,12 @@ def read_nubes(pname, setting='augment'):
         for f in os.listdir(ddir):
             if f.endswith('.ann'):
                 fstem  = os.path.join(ddir, f.strip('.ann'))
-                data_ex, cue_data_ex = read_nubes_doc(fstem+ '.txt', fstem + '.ann', setting=setting)
+                data_ex, cue_data_ex = read_nubes_doc(fstem+ '.txt', fstem + '.ann', setting=setting, include_all=include_all)
                 data.extend(data_ex)
                 cue_data.extend(cue_data_ex)
     return data, cue_data
 
-def read_nubes_doc(fname_txt, fname_anno, setting):
+def read_nubes_doc(fname_txt, fname_anno, setting, include_all):
     class Token(object):
         def __init__(self, start, end, surf, tid):
             self.c_start = start
@@ -922,6 +981,9 @@ def read_nubes_doc(fname_txt, fname_anno, setting):
                 if label.split(':')[-1].startswith('R'):
                     sent_labels.add(label.split(':')[-1])
         sent_data = []
+        if include_all and len(sent_labels) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            sent_labels = [None]
         for sent_label in sent_labels:
             print('\n')
             print(sent_label)
@@ -952,25 +1014,29 @@ def read_nubes_doc(fname_txt, fname_anno, setting):
             # check if there is at least one CUE in the data, otherwise don;t add. This is to filter out scopes of uncertainty cues
             if len(set(cue_labelseq)) > 1:
                 sent_data.append([out_labels, out_toks, cue_labelseq])
+            elif len(set(cue_labelseq)) == 1 and include_all:
+                sent_data.append([out_labels, out_toks, cue_labelseq])
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 
-def read_socc(pname, setting='augment'):
+def read_socc(pname, setting='augment', include_all=False):
     data = []
     cue_data = []
     for f in os.listdir(pname):
         dir_name = os.path.join(pname, f)
         for fname in [os.path.join(dir_name, f) for f in os.listdir(dir_name) if f.startswith('CURATION')]:
-            data_ex, cue_data_ex = read_socc_doc(fname, setting)
+            data_ex, cue_data_ex = read_socc_doc(fname, setting, include_all=include_all)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
     return data, cue_data
 
 
-def read_socc_doc(fname, setting):
+def read_socc_doc(fname, setting, include_all):
     data = []
     cue_data = []
     lines = read_file(fname)
@@ -1005,6 +1071,9 @@ def read_socc_doc(fname, setting):
                 if 'NEG' in anno:
                     sent_cues.add(anno)
         sent_data = []
+        if include_all and len(sent_cues) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            sent_cues = ['-1']
         for sent_cue in sent_cues:
             out_toks = []
             out_labels = []
@@ -1037,8 +1106,73 @@ def read_socc_doc(fname, setting):
         if len(sent_data) > 0:
             data.append(sent_data)
             cue_data.append(get_clue_annotated_data(sent_data))
-
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
+
+
+def read_cas(fname, setting='augment', include_all=False):
+    sents = {}
+    with open(fname) as f:
+
+        for line in f:
+            line = line.strip()
+            if line != '':
+                sid = line.split('\t')[0]
+                sents.setdefault(sid, []).append(line.strip())
+    data = []
+    cue_data = []
+    for sid, sent in sents.items():
+        cols = {}
+        for line in sent:
+            splt = line.split('\t')
+            if len(splt) >= 5:
+                for cid, elm in enumerate(splt):
+                    cols.setdefault(cid, []).append(elm)
+
+        negations = []
+        tid2cue = {}
+        tid2scope = {}
+
+        if len(cols) > 6:
+            tid2cue = {i: cols[5][i] for i in range(len(sent)) if 'neg' in cols[5][i]}
+            tid2scope = {i: cols[6][i] for i in range(len(sent)) if i < len(cols[6]) and 'scope' in cols[6][i]}
+            negations = tid2cue.keys()
+        sent_data = []
+        if include_all and len(negations) == 0:
+            print("################## This sentence has no negation. Adding to ds")
+            negations = [None]
+
+        if len(negations) > 0:
+            toks = []
+            labels = []
+            cue_labelseq = []
+            for tid, tok in enumerate(cols[2]):
+                is_cue = 0
+                if tid in tid2scope:
+                    neg = 'I'
+                else:
+                    neg = 'O'
+                if tid in tid2cue:
+                    is_cue = 1
+                    if setting == 'augment':
+                        toks.append('CUE')
+                        labels.append(neg)
+                        cue_labelseq.append(is_cue)
+                toks.append(tok)
+                labels.append(neg)
+                cue_labelseq.append(is_cue)
+            sent_data.append([labels, toks, cue_labelseq])
+            for t, l, s in zip(toks, labels, cue_labelseq):
+                print('{}\t{}\t{}'.format(t, l, s))
+        if len(sent_data) > 0:
+            data.append(sent_data)
+            cue_data.append(get_clue_annotated_data(sent_data))
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
+    return data, cue_data
+
+
 
 def read_dtneg(fname, setting='augment'):
     lines = read_file(fname)
@@ -1089,7 +1223,8 @@ def read_dtneg(fname, setting='augment'):
                 if len(sent_data) > 0:
                     data.append(sent_data)
                     cue_data.append(get_clue_annotated_data(sent_data))
-
+    if setting == 'joint':
+        data = join_cue_and_scope_labels(data)
     return data, cue_data
 
 def get_clues(data):
@@ -1106,247 +1241,6 @@ def get_clues(data):
                     clues.add(' '.join(cue))
                     cue = []
     return clues
-
-def read_drugs(fname, setting=None):
-    with open(fname, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile, delimiter='\t')
-        data = []
-        for row in reader:
-            review = row['review'].strip().replace('\t', ' ').replace('\n', ' ').replace('\r', ' ').replace('&#039;', "'").strip('"')
-
-            def convert_rating(rating):
-                if rating >= 7:
-                    return 1
-                elif rating <= 4:
-                    return -1
-                else:
-                    return 0
-            rating = convert_rating(float(row['rating'].strip()))
-
-            data.append({'rid': row[''].strip(), 'rating':rating, 'review': review})
-    return data
-
-
-def read_gad(fname, split):
-    data = []
-    with open(fname, encoding='utf-8') as f:
-        if split == 'train':
-            for line in f:
-                splt = line.strip('\n').split('\t')
-                data.append({'label': splt[1], 'seq': splt[0]})
-        elif split == 'test':
-            #skip first line
-            f.readline()
-            for line in f:
-                splt = line.strip('\n').split('\t')
-                data.append({'label': splt[2], 'seq': splt[1]})
-    return data
-
-
-def read_biorelex(fname):
-    with open(fname) as f:
-        data = json.load(f)
-    out_data = []
-    for elm in data:
-        def parse_elm(elm):
-            data = []
-            text = elm['text']
-            interactions = elm['interactions']
-            for interaction in interactions:
-                print(interaction)
-                participants = interaction['participants']
-                # collect the replacements for this relation
-                replacements = {}
-                # counter marks if a participant is the first, second, nth participant in the relation
-                for counter, pid in enumerate(participants):
-                    ent = elm['entities'][pid]
-                    label = ent['label'].upper()
-                    for name in ent['names'].keys():
-                        for mention in ent['names'][name]['mentions']:
-                            print(pid, mention, label)
-                            start = mention[0]
-                            end = mention[1]
-                            replacements[(start, end, counter)] = label
-
-                new_text = replace_mentions(replacements, text)
-                print(new_text)
-                print('\n')
-                rel_data = {}
-                rel_data['paperid'] = elm['paperid']
-                rel_data['seq'] = new_text
-                rel_data['label'] = interaction['label']
-                rel_data['type'] = interaction['type']
-                rel_data['implicit'] = interaction['implicit']
-                data.append(rel_data)
-            return data
-
-        out_data.extend(parse_elm(elm))
-        print('\n\n')
-    return out_data
-
-
-def replace_mentions(replacements, text):
-    # produce a string where mentions of particpants are replaced by their labels
-    spans = sorted(list(replacements.keys()), key=lambda x: x[1])
-    new_text = ''
-    for i, span in enumerate(spans):
-        start = span[0]
-        end = span[1]
-        pid = span[2]
-        if i == 0:
-            new_text += text[:start] + '${}{}$'.format(replacements[span], pid)
-        else:
-            new_text += text[spans[i - 1][1]:start] + '${}{}$'.format(replacements[span], pid)
-        if i == len(spans) - 1:
-            new_text += text[end:]
-    new_text = new_text.replace('  ', ' ')
-    return new_text
-
-
-def read_cdr(fname):
-    root = ET.parse(fname).getroot()
-    out_data = []
-    for elm in root:
-        for doc in elm.iter('document'):
-            docid = doc.find('id').text
-            entities = {}
-            for passage in doc.iter('passage'):
-                offset = int(passage.find('offset').text)
-                text = passage.find('text').text
-                # collect the mention annotations
-                for rid, annotation in enumerate(passage.iter('annotation')):
-
-                    process = True
-                    aid = annotation.attrib['id']
-                    # ignore if it's an individual mention in a composite role
-                    for infon in annotation.iter('infon'):
-                        if infon.attrib['key'] == 'CompositeRole':
-                            if infon.text == 'IndividualMention':
-                                process = False
-                        elif infon.attrib['key'] == 'type':
-                            atype = infon.text
-                        elif infon.attrib['key'] == 'MESH':
-                            mesh = infon.text
-                    if process:
-                        span_start = int(annotation.find('location').attrib['offset'])
-                        span_end = span_start + int(annotation.find('location').attrib['length'])
-                        ent_text = annotation.find('text').text
-                        print('{}\t{}\t{}\t{}\t{}\t{}'.format(aid, atype, mesh, span_start, span_end, ent_text))
-                        print(ent_text)
-                        print(text[span_start - offset: span_end - offset])
-                        assert ent_text == text[span_start - offset: span_end - offset]
-                        entities.setdefault(mesh, []).append({'span': (span_start, span_end), 'type': type, 'text': ent_text})
-            # iterate through relation annotations
-            for relation in doc.iter('relation'):
-                print('##########################################')
-                rid = relation.attrib['id']
-                for infon in relation.iter('infon'):
-                    if infon.attrib['key'] == 'Chemical':
-                        chemical = infon.text
-                    elif infon.attrib['key'] == 'Disease':
-                        disease = infon.text
-                    elif infon.attrib['key'] == 'relation':
-                        relation_type = infon.text
-                # build a mention_replaced string for this relation
-                print(entities[chemical])
-                print(entities[disease])
-                assert len(entities[chemical]) == 1
-                assert len(entities[disease]) == 1
-                span_chemical = (entities[chemical]['span'][0], entities[chemical]['span'][1], '')
-                span_disease = (entities[disease]['span'][0], entities[disease]['span'][1], '')
-                replacements = {span_chemical: 'CHEMICAL', span_disease: 'DISEASE'}
-                new_text = replace_mentions(replacements, text)
-                print(rid)
-                print(new_text)
-
-                #new_text = replace_mentions(replacements, text)
-                #data_point = {}
-                #data_point['seq'] = new_text
-
-
-def read_ade_doc(fname_txt, fname_ann):
-    #import scispacy
-    import spacy
-    nlp = spacy.load("en_core_web_sm")
-
-    class Token(object):
-        def __init__(self, start, end, surf, tid):
-            self.c_start = start
-            self.c_end = end
-            self.surface = surf
-            self.tid = tid
-
-        def set_label(self, label):
-            self.label = label
-
-    with open(fname_txt) as f:
-        text = f.read()
-    f.close()
-    doc = nlp(text)
-    for sent in doc.sents:
-        print(sent)
-    with open(fname_ann) as f:
-        annos = []
-        for line in f:
-            annos.append(line.strip())
-    tid2tok = {}
-    for anno in annos:
-        splt = anno.split('\t')
-        aid = splt[0]
-        label = splt[1].split()[0]
-        if aid.startswith('T'):
-            surface = splt[2]
-            if len(splt[1].split()) == 3:
-                span_start = int(splt[1].split()[1])
-                span_end = int(splt[1].split()[2].split(';')[0])
-                text_span = text[span_start:span_end]
-                tok = Token(span_start, span_end, surface, aid)
-            elif len(splt[1].split()) == 4:
-                span_start1 = int(splt[1].split()[1])
-                span_end1 = int(splt[1].split()[2].split(';')[0])
-                span_start2 = int(splt[1].split()[2].split(';')[1])
-                span_end2 = int(splt[1].split()[3])
-                if span_start2 - span_end1 > 3:
-                    break
-                text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2] ])
-                if text_span != surface:
-                    span_start2 -= 1
-                    text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2]])
-                if text_span != surface:
-                    text_span = text_span.replace(' ', '')
-                tok = Token(span_start1, span_end2, surface, aid)
-            elif len(splt[1].split()) == 5:
-                span_start1 = int(splt[1].split()[1])
-                span_end1 = int(splt[1].split()[2].split(';')[0])
-                span_start2 = int(splt[1].split()[2].split(';')[1])
-                span_end2 = int(splt[1].split()[3].split(';')[0])
-                span_start3 = int(splt[1].split()[3].split(';')[1])
-                span_end3 = int(splt[1].split()[4])
-                text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2], text[span_start3:span_end3]])
-                if text_span != surface:
-                    span_start2 -= 1
-                    text_span = ' '.join([text[span_start1:span_end1], text[span_start2:span_end2]])
-                if text_span != surface:
-                    text_span = text_span.replace(' ', '')
-                tok = Token(span_start1, span_end3, surface, aid)
-            #print(anno)
-            #print(len(surface))
-            #print(len(text_span))
-            assert surface.replace(' ', '') == text_span.replace(' ','')
-
-            tid2tok[aid] = tok
-    for anno in annos:
-        splt = anno.split('\t')
-        aid = splt[0]
-        label = splt[1].split()[0]
-        if aid.startswith('R'):
-            arg1 = splt[1].split()[1].split(':')[1]
-            arg2 = splt[1].split()[2].split(':')[1]
-            span1 = (tid2tok[arg1].c_start, tid2tok[arg1].c_end, '')
-            span2 = (tid2tok[arg2].c_start, tid2tok[arg2].c_end, '')
-            replacements = {span1: tid2tok[arg1].surface, span2: tid2tok[arg2].surface}
-            new_text = replace_mentions(replacements, text)
-            #print(new_text)
 
 
 '''
@@ -1483,10 +1377,25 @@ if __name__=="__main__":
     datasets = ['biofull', 'bioabstracts', 'bio',
                 'sherlocken', 'sherlockzh',
                 'iula', 'sfuen', 'sfues',
-                'ddi', 'ita', 'socc', 'dtneg']
+                 'ita', 'socc', 'dtneg', 'nubes',
+                'biofullall', 'bioabstractsall', 'bioall',
+                'sherlockenall', 'sherlockzhall',
+                'iulaall',
+                'sfuenall','sfuesall',
+                'itaall',
+                'nubesall',
+                'dtnegall', 'soccall',
+                'french', 'frenchall']
 
     #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
-    datasets = ['drugs']
+    datasets = ['biofullall', 'bioabstractsall', 'bioall',
+                'sherlockenall', 'sherlockzhall',
+                'iulaall',
+                'sfuenall','sfuesall',
+                'itaall',
+                'nubesall',
+                'dtnegall', 'soccall',
+                'french', 'frenchall']
 
     # parse bioscope abstracts
     import configparser
@@ -1509,50 +1418,149 @@ if __name__=="__main__":
     #triggers = read_file(lexicon_file)
     #clue_detection.setup_matcher(triggers, matcher)
 
+    def join_sentence_annos(data):
+        """
+        join scope annotations for one sentence for the setting with no conditioning on cues
+        """
+        joined_data = []
+        for sent_data in data:
 
-    setting = 'augment'
+            joined_labels =  ['O']*len(sent_data[0][0])
+            joined_cue_seq = ['0']*len(sent_data[0][2])
+            seq = sent_data[0][1]
+
+            for label, _, cue_seq in sent_data:
+                for i, elm in enumerate(label):
+                    if elm == 'C':
+                        joined_labels[i] = 'C'
+                    elif elm == 'I' and joined_labels[i] != 'C':
+                        joined_labels[i] = 'I'
+                for i, elm in enumerate(cue_seq):
+                    if elm == '1':
+                        joined_cue_seq[i] = '1'
+            if len(sent_data) > 1:
+                print('Joining {} to {}'.format([elm[0] for elm in sent_data], joined_labels))
+            joined_data.append([[joined_labels, seq, joined_cue_seq]])
+
+        return joined_data
+
+
+
+    setting = 'joint'
+
     for ds in datasets:
         if ds == 'biofull':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'biofullall':
+            data, cue_data = read_bioscope(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+
         elif ds == 'bioabstracts':
             data, cue_data = read_bioscope(config.get('Files', ds), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'bioabstractsall':
+            data, cue_data = read_bioscope(config.get('Files', ds.split('all')[0]), setting=setting,  include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'bio':
             data, cue_data = read_bioscope(config.get('Files', 'biofull'), setting=setting)
-            data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'))
+            data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'), setting=setting)
             data.extend(data_extension)
             cue_data.extend(cue_data_extension)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'bioall':
+            data, cue_data = read_bioscope(config.get('Files', 'biofull'), setting=setting, include_all=True)
+            data_extension, cue_data_extension = read_bioscope(config.get('Files', 'bioabstracts'), setting=setting, include_all=True)
+            data.extend(data_extension)
+            cue_data.extend(cue_data_extension)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlocken':
             data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
-
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'sherlockenall':
+            data, cue_data = read_sherlock(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sherlockzh':
             data, cue_data = read_sherlock(config.get('Files', ds), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'sherlockzhall':
+            data, cue_data = read_sherlock(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'iula':
             data, cue_data = read_IULA(config.get('Files', ds), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'iulaall':
+            data, cue_data = read_IULA(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfuen':
             data, cue_data = read_sfu_en(config.get('Files', ds), setting=setting)
-
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'sfuenall':
+            data, cue_data = read_sfu_en(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'sfues':
             data, cue_data = read_sfu_es(config.get('Files', ds), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'sfuesall':
+            data, cue_data = read_sfu_es(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
@@ -1561,6 +1569,18 @@ if __name__=="__main__":
             data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'), setting=setting)
             data = data_train + data_test
             cue_data = cue_data_train + cue_data_test
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'ddiall':
+            data_train, cue_data_train = read_ddi(config.get('Files', 'dditrain'), setting=setting, include_all=True)
+            data_test, cue_data_test = read_ddi(config.get('Files', 'dditest'), setting=setting,include_all=True)
+            data = data_train + data_test
+            cue_data = cue_data_train + cue_data_test
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
@@ -1569,28 +1589,101 @@ if __name__=="__main__":
             data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'), setting=setting)
             data.extend(data_ex)
             cue_data.extend(cue_data_ex)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs =  write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'french':
+            data, cue_data = read_cas(config.get('Files', 'cas'), setting=setting)
+            data_ex, cue_data_ex = read_cas(config.get('Files', 'essai'), setting=setting)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'frenchall':
+            data, cue_data = read_cas(config.get('Files', 'cas'), setting=setting, include_all=True)
+            data_ex, cue_data_ex = read_cas(config.get('Files', 'essai'), setting=setting, include_all=True)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'itaall':
+            data, cue_data = read_ita(config.get('Files', 'ita1'), setting=setting, include_all=True)
+            data_ex, cue_data_ex = read_ita(config.get('Files', 'ita2'), setting=setting,include_all=True)
+            data.extend(data_ex)
+            cue_data.extend(cue_data_ex)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'socc':
             data, cue_data = read_socc(config.get('Files', 'socc'), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'soccall':
+            data, cue_data = read_socc(config.get('Files', 'socc'), setting=setting, include_all=True)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'dtneg':
             data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'dtnegall':
+            #dtneg only has sentences with negation
+            data, cue_data = read_dtneg(config.get('Files', 'dtneg'), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
         elif ds == 'nubes':
             data, cue_data = read_nubes(config.get('Files', 'nubes'), setting=setting)
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+        elif ds == 'nubesall':
+            data, cue_data = read_nubes(config.get('Files', 'nubes'), setting=setting, include_all=True)
+            print(len(data))
+            if setting == 'nocond' or setting == 'joint':
+                data = join_sentence_annos(data)
+            idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
+            if setting == 'augment':
+                write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+
+
+
         elif ds == 'drugs':
             train_data = read_drugs(config.get('Files', 'drugstrain'), setting=setting)
             test_data = read_drugs(config.get('Files', 'drugstest'), setting=setting)
             idxs = write_train_dev_test_data_drugs(os.path.join(outpath, ds), train_data, test_data)
+        elif ds == 'ddirelations':
+            for split in ['train', 'dev', 'test']:
+                data = read_ddi_relations(os.path.join(config.get('Files', 'ddi_relations_path'), '{}.tsv'.format(split)))
+                write_split(os.path.join(outpath, ds) + '_{}.tsv'.format(split), data, json_format=True)
+        elif ds == 'chemprot':
+            for split in ['train', 'dev', 'test']:
+                data = read_chemprot_relations(
+                    os.path.join(config.get('Files', 'chemprot_path'), '{}.tsv'.format(split)))
+                write_split(os.path.join(outpath, ds) + '_{}.tsv'.format(split), data, json_format=True)
         elif ds == 'gad':
             # gad is the preprocessed version provided by biobert
             # already has 10 train/test splits but no dev splits
@@ -1672,6 +1765,23 @@ if __name__=="__main__":
             dev_data = []
             test_data = []
             for d in ['uditisdt', 'uditpartut', 'uditpostwita', 'udittwittiro', 'uditvit']:
+                train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
+                dev_data.extend(udep.read_udep(fname=config.get('Files', d).format('dev'), ds=d))
+                test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
+
+            train_data_out = shuffle_and_prepare(train_data)
+            dev_data_out = shuffle_and_prepare(dev_data)
+            test_data_out = shuffle_and_prepare(test_data)
+
+            write_split(os.path.join(outpath, ds) + '_train.tsv', train_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_dev.tsv', dev_data_out, json_format=False)
+            write_split(os.path.join(outpath, ds) + '_test.tsv', test_data_out, json_format=False)
+
+        elif ds == 'udfr':
+            train_data = []
+            dev_data = []
+            test_data = []
+            for d in ['udfrgsd', 'udfrpartut', 'udfrsequoia']:
                 train_data.extend(udep.read_udep(fname=config.get('Files', d).format('train'), ds=d))
                 dev_data.extend(udep.read_udep(fname=config.get('Files', d).format('dev'), ds=d))
                 test_data.extend(udep.read_udep(fname=config.get('Files', d).format('test'), ds=d))
