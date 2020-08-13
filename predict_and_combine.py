@@ -34,6 +34,42 @@ def rejoin_subwords(toks, labels, replace_labels, default_label):
             filtered_labels.append(label)
     return [''.join(elm) for elm in filtered_toks], filtered_labels
 
+def get_spans(labels):
+    i = 0
+    spans = []
+    while i < len(labels):
+        if labels[i] == 'I' or labels[i] == 'C':
+            span_start = i
+            while i < len(labels) - 1:
+                i += 1
+                if labels[i] == 'I' or labels[i] == 'X' or labels[i] == 'C':
+                    if i == len(labels) - 1:
+                        span_end = i
+                        spans.append((span_start, span_end))
+                    continue
+                else:
+                    span_end = i - 1
+
+                    spans.append((span_start, span_end))
+                    break
+        i += 1
+    return spans
+
+def add_span_labels_within(spans, seq):
+    modified_seq = seq
+    updated_positions = range(len(seq))
+    for i, span in enumerate(spans):
+        span_start = span[0]
+        span_end = span[1]
+        modified_seq = modified_seq[:updated_positions[span_start]] + ['[START{}]'.format(i)] + modified_seq[updated_positions[span_start]:]
+        # update positions after insertion
+        updated_positions = [updated_positions[i]+1 if i >= span_start else i for i in range(len(updated_positions))]
+        modified_seq = modified_seq[:updated_positions[span_end]+1] + ['[END{}]'.format(i)] + modified_seq[
+                                                                                                   updated_positions[
+                                                                                                       span_end]+1:]
+        updated_positions = [updated_positions[i] + 1 if i >= span_end else i for i in range(len(updated_positions))]
+    return modified_seq
+
 def main(args):
     """"
     predict unlabeled data and use predictions as silver labels, either silver cue labels for input to scope prediction, or silver scopes as input for downstream task
@@ -84,7 +120,7 @@ def main(args):
     with torch.no_grad():
         test_metrics, test_predictions, scores, golds, test_ids = eval_model(model, test_data,
                                                                              metric_meta=metric_meta,
-                                                                             use_cuda=args.cuda, with_label=args.with_label)
+                                                                             use_cuda=args.cuda, with_label=args.with_label, dataset=prefix)
 
         results = {'metrics': test_metrics, 'predictions': test_predictions, 'uids': test_ids, 'scores': scores}
         uid2pred = {}
@@ -122,10 +158,6 @@ def main(args):
                 assert len(filtered_toks) == len(filtered_labels)
                 out_labels.append(filtered_labels)
                 out_seqs.append(filtered_toks)
-            # convert indexes back to original labels
-            #for elm in data[0]['label']:
-            #    print(elm)
-            #    print(target_label_map[elm])
             orig_labels.extend([elm for elm in data[0]['label']])
 
         if args.silver_signal == 'cue':
@@ -200,7 +232,6 @@ def main(args):
             """
             non_combined_data = []
             # produce scope annotated data
-            #for _seq, labels in zip(out_seqs, out_labels):
             for c, _seq in enumerate(out_seqs):
                 labels = out_labels[c]
                 orig_seq_labels = orig_labels[c]
@@ -220,6 +251,34 @@ def main(args):
                                           'sid': uid})
             combined_data = re_combine_data(data_sids, non_combined_data, label_mapper=label_map)
             for elm in combined_data:print(elm['labels'])
+            write_split(fname=args.outfile, data=combined_data)
+
+        elif args.silver_signal == 'span1':
+            """
+            append predicted cue position and span start and end position to the end of the sequence
+            """
+            labeled_seqs = []
+            for c, _seq in enumerate(out_seqs):
+                labels = out_labels[c]
+                # find cue
+                cues = []
+                spans = []
+                for i, label in enumerate(labels):
+                    if label_map[label] == 'C':
+                        cues.append(i)
+
+                spans = get_spans([label_map[elm] for elm in labels])
+                labeled_seq = add_span_labels_within(spans, _seq)
+                labeled_seqs.append(labeled_seq)
+            combined_data = []
+            for seq, orig_label in zip(labeled_seqs, orig_labels):
+                uid = len(combined_data)
+                # the sequence is passed as a string, not as a list of tokens. important for correct handling in prepro_std.py
+                combined_data.append({'uid': uid,
+                 'seq': ' '.join(seq),
+                 'labels': orig_label})
+            for elm in combined_data:
+                print(combined_data)
             write_split(fname=args.outfile, data=combined_data)
 
 
@@ -273,10 +332,10 @@ if __name__=="__main__":
     parser.add_argument("--prep_input", type=str,
                         default="/home/mareike/PycharmProjects/negscope/data/formatted/bert-base-multilingual-cased/drugss_test.json")
     parser.add_argument("--outfile", type=str,
-                        default="/home/mareike/PycharmProjects/negscope/data/formatted/drugsssilverscopes_test.tsv")
+                        default="/home/mareike/PycharmProjects/negscope/data/formatted/drugsspan1_test.tsv")
     parser.add_argument("--with_label", action="store_true")
     parser.add_argument("--score", type=str, help="score output path", default='tmp')
-    parser.add_argument("--silver_signal", type=str, help="what we want to predict", choices=['scope', 'cue'], default="scope")
+    parser.add_argument("--silver_signal", type=str, help="what we want to predict", choices=['scope', 'cue', 'span1', 'span2', 'span3'], default="span1")
     parser.add_argument("--max_seq_len", type=int, default=512)
     parser.add_argument("--batch_size_eval", type=int, default=8)
     parser.add_argument("--cuda", type=bool, default=torch.cuda.is_available(),

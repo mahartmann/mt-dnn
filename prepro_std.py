@@ -12,6 +12,7 @@ from data_utils.log_wrapper import create_logger
 from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
 from pretrained_models import *
+import configparser
 
 
 def bool_flag(s):
@@ -47,8 +48,8 @@ def feature_extractor(tokenizer, text_a, text_b=None, max_length=512, model_type
         add_special_tokens=True,
         max_length=max_length,
     )
-    input_ids, token_type_ids = inputs["input_ids"], inputs["token_type_ids"]
 
+    input_ids, token_type_ids = inputs["input_ids"], inputs["token_type_ids"]
     # The mask has 1 for real tokens and 0 for padding tokens. Only real
     # tokens are attended to.
     attention_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
@@ -316,7 +317,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
 
 
     if data_format == DataFormat.PremiseOnly:
-        if additional_features:
+        if additional_features[0] != None:
             build_data_premise_only_with_additional_features(data, dump_path, additional_features, max_seq_len, tokenizer,
                                                          encoderModelType)
         else:
@@ -365,7 +366,8 @@ def parse_args():
     parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/iulajoint_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/drugsspan1_task_def.yml")
+    parser.add_argument('--config', type=str, default='preprocessing/config.cfg')
 
     args = parser.parse_args()
     return args
@@ -376,7 +378,9 @@ def main(args):
     do_lower_case = args.do_lower_case
     root = args.root_dir
     assert os.path.exists(root)
-
+    cfg = args.config
+    config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config.read(cfg)
     #literal_model_type = args.model.split('-')[0].upper()
     literal_model_type = args.literal_model_type.upper()
     encoder_model = EncoderModelType[literal_model_type]
@@ -388,7 +392,8 @@ def main(args):
         mt_dnn_suffix += "_large"
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[literal_model_type]
-    tokenizer = tokenizer_class.from_pretrained(args.model, do_lower_case=do_lower_case)
+    tokenizer = setup_customized_tokenizer(tokenizer_class=tokenizer_class, model=args.model, do_lower_case=do_lower_case, config=config)
+
     output_dir = args.model
     if 'uncased' in args.model:
         mt_dnn_suffix = '{}_uncased'.format(mt_dnn_suffix)
@@ -416,7 +421,6 @@ def main(args):
             rows = load_data(file_path, task_def, json_format=args.json_format)
             dump_path = os.path.join(mt_dnn_root, "%s_%s.json" % (task, split_name))
             logger.info(dump_path)
-
             build_data(
                 rows,
                 dump_path,
@@ -426,6 +430,15 @@ def main(args):
                 lab_dict=task_def.label_vocab,
                 additional_features=get_additional_feature_names(task_def['additional_features']))
 
+
+def setup_customized_tokenizer(model, tokenizer_class, do_lower_case, config):
+    additional_tokens = []
+    for i in range(10):
+        additional_tokens.append('[START{}]'.format(i))
+        additional_tokens.append('[END{}]'.format(i))
+    tokenizer = tokenizer_class.from_pretrained(model, vocab_file=config.get('Files', 'mbertvocab'),
+                                    do_lower_case=do_lower_case, additional_special_tokens=additional_tokens)
+    return tokenizer
 
 if __name__ == '__main__':
     args = parse_args()

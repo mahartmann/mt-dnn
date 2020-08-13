@@ -1,0 +1,42 @@
+drugss:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+    - '-1'
+    - '0'
+    - '1'
+  metric_meta:
+  - PRF
+  - PRFReport
+  n_class: 3
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
+bio:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "O"
+  - "I"
+  - "X"
+  - "CLS"
+  - "SEP"
+  metric_meta:
+  - SCOPEF
+  - SCOPEP
+  - SCOPER
+  - PCS
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
