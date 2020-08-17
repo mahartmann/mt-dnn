@@ -366,7 +366,7 @@ def parse_args():
     parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/chemprot_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/joint_task_def.yml")
     parser.add_argument('--config', type=str, default='preprocessing/config.cfg')
 
     args = parser.parse_args()

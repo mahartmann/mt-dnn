@@ -33,7 +33,10 @@ def generate_train_dev_splits(num_data):
     return train_idxs, dev_idxs
 
 
-def write_train_dev_test_data(fstem, data, setting):
+def write_train_dev_test_data(fstem, data, setting, sample_equal=False):
+    """
+    if sample_equal is True, we sample identical amounts of sentences with and without negation
+    """
     split_idxs = generate_train_dev_test_splits(len(data))
     for i, splt in enumerate(['train', 'dev', 'test']):
         idxs = split_idxs[i]
@@ -49,7 +52,10 @@ def write_train_dev_test_data(fstem, data, setting):
         fstem_out = fstem
         if setting == 'embed':
             fstem_out = fstem+'embed'
-
+        elif setting == 'nocond':
+            fstem_out = fstem + 'nocond'
+        elif setting == 'joint':
+            fstem_out = fstem + 'joint'
         write_split('{}_{}.tsv'.format(fstem_out, splt), out_data)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem_out, splt) ))
     return  split_idxs
@@ -119,14 +125,14 @@ def write_data_gad_format(fstem, train_data, test_data):
         out_data = []
         for idx in idxs:
             out_data.append([len(out_data), train_data[idx]['label'], train_data[idx]['seq']])
-        write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=False)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),
                                                                            '{}_{}.tsv'.format(fstem, splt)))
     out_data = []
     splt = 'test'
     for elm in test_data:
         out_data.append([len(out_data), elm['label'], elm['seq']])
-    write_split('{}_{}.tsv'.format(fstem, splt), out_data)
+    write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=False)
     print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
                                                                        '{}_{}.tsv'.format(fstem, splt)))
     return split_idxs
@@ -152,6 +158,7 @@ def shuffle_and_prepare(data, shuffle=True):
         return out_data
 
 def write_split(fname, data, json_format=True):
+    print('Writing to {}'.format(fname))
     outlines = []
     if not json_format:
         for elm in data:
@@ -167,22 +174,81 @@ def write_split(fname, data, json_format=True):
         f.close()
 
 
+def sample_scope_annotations(fnamestem, outnamestem):
+    """
+    sample instances from data such that number of sents with negation is equal to number of sents w/o negation
+    """
+
+    def split_data(data):
+        notnegated = []
+        negated = []
+        for elm in data:
+            labels = set(elm['labels'])
+            if len(labels) == 1 and 'O' in labels:
+                notnegated.append(elm)
+            else:
+                negated.append(elm)
+        print('{} negated, {} nonnegated'.format(len(negated), len(notnegated)))
+        return negated, notnegated
+
+    np.random.seed(42)
+
+    def load_data(fname):
+        with open(fname) as f:
+            d = []
+            for line in f:
+                d.append(json.loads(line))
+        return d
+
+    d = load_data(fnamestem + '_train.tsv')
+
+    negated, notnegated = split_data(d)
+    sampled_data = []
+    if len(negated) <= len(notnegated):
+        sampled_data.extend(negated)
+        np.random.shuffle(notnegated)
+        sampled_data.extend(notnegated[:len(negated)])
+    else:
+        sampled_data.extend(notnegated)
+        np.random.shuffle(negated)
+        sampled_data.extend(negated[:len(notnegated)])
+    np.random.shuffle(sampled_data)
+    # rewrite uids
+    for i, elm in enumerate(sampled_data):
+        elm['uid'] = i
+    split_data(sampled_data)
+    write_split(outnamestem + '_train.tsv', sampled_data, json_format=True)
+
+    for split in ['dev', 'test']:
+        d = load_data(fnamestem + '_{}.tsv'.format(split))
+        split_data(d)
+        write_split(outnamestem +  '_{}.tsv'.format(split), d, json_format=True)
+
+
+
+
+
 if __name__=="__main__":
-    np.random.seed(42)
-    tr, d, te = generate_train_dev_test_splits(100)
-    print(tr)
-    print(d)
-    print(te)
+    import configparser
 
-    tr, d, te = generate_train_dev_test_splits(100)
-    print(tr)
-    print(d)
-    print(te)
+    cfg = 'config.cfg'
+    config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config.read(cfg)
+    outpath = config.get('Files', 'preproc_data')
 
-    np.random.seed(42)
-    tr, d, te = generate_train_dev_test_splits(100)
-    print(tr)
-    print(d)
-    print(te)
-
-
+    datasets = [
+                'biofullall', 'bioabstractsall', 'bioall',
+                'sherlockenall', 'sherlockzhall',
+                'iulaall',
+                'sfuenall', 'sfuesall',
+                'itaall',
+                'nubesall',
+                'dtnegall', 'soccall','frenchall']
+    #datasets = [
+        #'nubesall']
+    setting = 'joint'
+    for ds in datasets:
+        stem = '{}{}'.format(ds, setting)
+        fnamestem = os.path.join(outpath, stem)
+        outnamestem = os.path.join(outpath, stem.replace('all','equal'))
+        sample_scope_annotations(fnamestem, outnamestem)

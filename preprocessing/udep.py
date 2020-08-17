@@ -94,13 +94,30 @@ def process_sent_binary_it(sent):
         print(' '.join(toks))
     return [label, ' '.join(toks)]
 
+def process_sent_binary_fr(sent):
+    """
+    produce binary data indicating if negation is present in the sentence
+    """
+    for elm in sent:
+        splt = elm.split('\t')
+        if splt[5] == 'Polarity=Neg' or 'PronType=Neg' in splt[5]:
+            label = 1
+            break
+        else:
+            label = 0
+    toks = [elm.split('\t')[1] for elm in sent]
+    if label == 1:
+        print(' '.join(toks))
+    return [label, ' '.join(toks)]
+
 def read_udep(fname, ds):
     data = []
     sents = get_conll_sents(fname)
     assert ds in set(['udengum', 'udenlines', 'udenpartut',\
                       'udesancora', 'udesgsd',\
                       'udzhgsd', 'udzhgsdsimp',\
-                      'uditisdt','uditpostwita', 'uditpartut', 'udittwittiro', 'uditvit'])
+                      'uditisdt','uditpostwita', 'uditpartut', 'udittwittiro', 'uditvit',
+                      'udfrgsd', 'udfrpartut', 'udfrsequoia'])
     for sent in sents:
         if ds == 'udengum':
             data.append(process_sent_binary_en_gum(sent))
@@ -126,5 +143,11 @@ def read_udep(fname, ds):
             data.append(process_sent_binary_it(sent))
         elif ds == 'uditvit':
             data.append(process_sent_binary_it(sent))
+        elif ds == 'udfrgsd':
+            data.append(process_sent_binary_fr(sent))
+        elif ds == 'udfrpartut':
+            data.append(process_sent_binary_fr(sent))
+        elif ds == 'udfrsequoia':
+            data.append(process_sent_binary_fr(sent))
 
     return data
