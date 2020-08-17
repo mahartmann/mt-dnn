@@ -82,14 +82,14 @@ def feature_extractor(tokenizer, text_a, text_b=None, max_length=512, model_type
 def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                max_seq_len=MAX_SEQ_LEN, encoderModelType=EncoderModelType.BERT, lab_dict=None, additional_features=None):
     def build_data_premise_only(
-            data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT):
+            data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT, lab_dict=lab_dict):
         """Build data of single sentence tasks
         """
         with open(dump_path, 'w', encoding='utf-8') as writer:
             for idx, sample in enumerate(data):
                 ids = sample['uid']
                 premise = sample['premise']
-                label = sample['label']
+                label = lab_dict[sample['label']]
                 if len(premise) > max_seq_len - 2:
                     premise = premise[:max_seq_len - 2]
                 input_ids, input_mask, type_ids = feature_extractor(tokenizer, premise, max_length=max_seq_len, model_type=encoderModelType.name)
@@ -99,12 +99,12 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                     'token_id': input_ids,
                     'type_id': type_ids}
                 writer.write('{}\n'.format(json.dumps(features)))
-    def build_data_premise_only_with_additional_features(data, dump_path, additional_features_ids, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT):
+    def build_data_premise_only_with_additional_features(data, dump_path, additional_features_ids, max_seq_len=MAX_SEQ_LEN, tokenizer=None, encoderModelType=EncoderModelType.BERT, lab_dict=lab_dict):
         with open(dump_path, 'w', encoding='utf-8') as writer:
             for idx, sample in enumerate(data):
                 ids = sample['uid']
                 premise = sample['premise']
-                label = sample['label']
+                label = lab_dict[sample['label']]
                 tokens = []
                 additional_features_extended = []
                 for i, word in enumerate(premise):
@@ -207,11 +207,11 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                     subwords = tokenizer.tokenize(word)
                     tokens.extend(subwords)
                     for j in range(len(subwords)):
-                        if j == 0:
+                        if j == 0 or not subwords[j].startswith('##'):
                             labels.append(sample['label'][i])
                         else:
                             labels.append(label_mapper['X'])
-                if len(tokens) >  max_seq_len - 2:
+                if len(tokens) > max_seq_len - 2:
                     tokens = tokens[:max_seq_len - 2]
                     labels = labels[:max_seq_len - 2]
 
@@ -236,7 +236,7 @@ def build_data(data, dump_path, tokenizer, data_format=DataFormat.PremiseOnly,
                     subwords = tokenizer.tokenize(word)
                     tokens.extend(subwords)
                     for j in range(len(subwords)):
-                        if j == 0:
+                        if j == 0 or not subwords[j].startswith('##'):
                             labels.append(sample['label'][i])
                             additional_features.append({additional_features_id: sample[additional_features_id][i] for additional_features_id in additional_features_ids if additional_features_id!= 'sid'})
                         else:
