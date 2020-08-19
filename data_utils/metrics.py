@@ -266,7 +266,7 @@ def compute_p_r_f_multi_report(predicts, labels, label_mapper, dataset):
         label_strings.append(key)
         label_idxs.append(val)
     f = classification_report_sklearn(labels, predicts, labels=label_idxs, target_names=label_strings, output_dict=True)
-    if dataset == 'chemprot' or dataset == 'ddirelations':
+    if dataset == 'chemprot' or dataset == 'ddirelations' or dataset == 'ddirelationssilverspan1' or  dataset == 'chemprotsilverspan1':
         filtered_preds, filtered_gold, filtered_label_idxs, filtered_label_strings = compute_p_r_f_subset(predicts, labels, label_mapper, dataset)
         f_subset = classification_report_sklearn(y_true=filtered_gold, y_pred=filtered_preds, labels=filtered_label_idxs, target_names=filtered_label_strings, output_dict=True)
         f['subset'] = f_subset
