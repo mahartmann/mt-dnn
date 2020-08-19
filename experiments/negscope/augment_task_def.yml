@@ -1,4 +1,4 @@
-biofullequaljoint:
+biofullequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -6,7 +6,6 @@ biofullequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -15,7 +14,7 @@ biofullequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -24,7 +23,7 @@ biofullequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-bioabstractsequaljoint:
+bioabstractsequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -32,7 +31,6 @@ bioabstractsequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -41,7 +39,7 @@ bioabstractsequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -50,7 +48,7 @@ bioabstractsequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-bioequaljoint:
+bioequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -58,7 +56,6 @@ bioequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -67,7 +64,7 @@ bioequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -76,7 +73,7 @@ bioequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-sherlockenequaljoint:
+sherlockenequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -84,7 +81,6 @@ sherlockenequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -93,7 +89,7 @@ sherlockenequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -102,7 +98,7 @@ sherlockenequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-sherlockzhequaljoint:
+sherlockzhequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -110,7 +106,6 @@ sherlockzhequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -119,7 +114,7 @@ sherlockzhequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -128,7 +123,7 @@ sherlockzhequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-iulaequaljoint:
+iulaequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -136,7 +131,6 @@ iulaequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -145,7 +139,7 @@ iulaequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -154,7 +148,7 @@ iulaequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-sfuenequaljoint:
+sfuenequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -162,7 +156,6 @@ sfuenequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -171,7 +164,7 @@ sfuenequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -180,7 +173,7 @@ sfuenequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-sfuesequaljoint:
+sfuesequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -188,7 +181,6 @@ sfuesequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -197,7 +189,7 @@ sfuesequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -206,7 +198,7 @@ sfuesequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-itaequaljoint:
+itaequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -214,7 +206,6 @@ itaequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -223,7 +214,7 @@ itaequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -232,7 +223,7 @@ itaequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-nubesequaljoint:
+nubesequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -240,7 +231,6 @@ nubesequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -249,7 +239,7 @@ nubesequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -258,7 +248,7 @@ nubesequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-dtnegequaljoint:
+dtnegequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -266,7 +256,6 @@ dtnegequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -275,7 +264,7 @@ dtnegequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -284,7 +273,7 @@ dtnegequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-soccequaljoint:
+soccequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -292,7 +281,6 @@ soccequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -301,7 +289,7 @@ soccequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
@@ -310,7 +298,7 @@ soccequaljoint:
   task_type: SeqenceLabeling
   additional_features:
   - sid
-frenchequaljoint:
+frenchequal:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -318,7 +306,6 @@ frenchequaljoint:
   labels:
   - "O"
   - "I"
-  - "C"
   - "X"
   - "CLS"
   - "SEP"
@@ -327,7 +314,7 @@ frenchequaljoint:
   - SCOPEP
   - SCOPER
   - PCS
-  n_class: 6
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
   - train
