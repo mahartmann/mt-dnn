@@ -233,7 +233,7 @@ def compute_clue_f(predicts, labels, label_mapper):
 
 def compute_p_r_f_multi(predicts, labels, label_mapper, dataset):
     f = compute_p_r_f_multi_report(predicts, labels, label_mapper, dataset)
-    if dataset == 'chemprot' or dataset == 'ddirelations':
+    if dataset == 'chemprot' or dataset == 'ddirelations' or dataset == 'ddirelationssilverspan1' or  dataset == 'chemprotsilverspan1':
         return f['subset']['micro avg']['f1-score']
     else:
         return f['macro avg']['f1-score']
@@ -244,9 +244,9 @@ def compute_p_r_f_subset(predict, labels, label_mapper, dataset):
     """
     predict_filtered = []
     gold_filtered = []
-    if dataset == 'chemprot':
+    if dataset == 'chemprot' or dataset == 'chemprotsilverspan1':
         excluded_label = 'false'
-    elif dataset == 'ddirelations':
+    elif dataset == 'ddirelations' or dataset == 'ddirelationssilverspan1':
         excluded_label = 'DDI-false'
     gold_filtered = [labels[i] for  i, elm in enumerate(labels) if label_mapper[elm] != excluded_label]
     predict_filtered = [predict[i] for i, elm in enumerate(labels) if label_mapper[elm] != excluded_label]
