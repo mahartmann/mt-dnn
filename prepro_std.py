@@ -366,7 +366,7 @@ def parse_args():
     parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/joint_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/augment_task_def.yml")
     parser.add_argument('--config', type=str, default='preprocessing/config.cfg')
 
     args = parser.parse_args()
@@ -440,6 +440,7 @@ def setup_customized_tokenizer(model, tokenizer_class, do_lower_case, config):
     additional_tokens.append('@GENE$')
     additional_tokens.append('@DRUG$')
     additional_tokens.append('@DISEASE$')
+    additional_tokens.append('[CUE]')
     tokenizer = tokenizer_class.from_pretrained(model, vocab_file=config.get('Files', 'mbertvocab'),
                                     do_lower_case=do_lower_case, additional_special_tokens=additional_tokens)
     return tokenizer
