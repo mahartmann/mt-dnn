@@ -93,7 +93,7 @@
 [unused92]
 [unused93]
 [unused94]
-[unused95]
+[CUE]
 @CHEMICAL$
 @GENE$
 @DRUG$
