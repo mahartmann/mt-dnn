@@ -13,6 +13,7 @@ from experiments.exp_def import TaskDefs, EncoderModelType
 from experiments.squad import squad_utils
 from pretrained_models import *
 import configparser
+from transformers import PreTrainedTokenizer
 
 
 def bool_flag(s):
@@ -359,14 +360,14 @@ def convert_additional_features(feature, type='scope_indicator'):
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Preprocessing GLUE/SNLI/SciTail dataset.')
-    parser.add_argument('--model', type=str, default='bert-base-multilingual-cased',
-                        help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers')
+    parser.add_argument('--model', type=str, default='bert-base-cased',
+                        help='support all BERT, XLNET and ROBERTA family supported by HuggingFace Transformers', choices=['bert-base-multilingual-cased', 'spanish-bert-cased', 'bert-base-cased'])
     parser.add_argument('--literal_model_type', type=str, default='bert',
                         help='the type of base model, e.g. bert or xlnet')
     parser.add_argument('--json_format', type=bool_flag, default=True)
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='/home/mareike/PycharmProjects/negscope/data/formatted/')
-    parser.add_argument('--task_def', type=str, default="experiments/negscope/augment_task_def.yml")
+    parser.add_argument('--task_def', type=str, default="experiments/negscope/spbio_task_def.yml")
     parser.add_argument('--config', type=str, default='preprocessing/config.cfg')
 
     args = parser.parse_args()
@@ -441,8 +442,20 @@ def setup_customized_tokenizer(model, tokenizer_class, do_lower_case, config):
     additional_tokens.append('@DRUG$')
     additional_tokens.append('@DISEASE$')
     additional_tokens.append('[CUE]')
-    tokenizer = tokenizer_class.from_pretrained(model, vocab_file=config.get('Files', 'mbertvocab'),
+    if model == 'bert-base-multilingual-cased':
+        tokenizer = tokenizer_class.from_pretrained(model, vocab_file=config.get('Files', 'mbertvocab'),
                                     do_lower_case=do_lower_case, additional_special_tokens=additional_tokens)
+    if model == 'bert-base-cased':
+        tokenizer = tokenizer_class.from_pretrained(model, vocab_file=config.get('Files', 'bertvocab'),
+                                                    do_lower_case=do_lower_case,
+                                                    additional_special_tokens=additional_tokens)
+    elif model == 'spanish-bert-cased':
+        #tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path="dccuchile/bert-base-spanish-wwm-cased", vocab_file=config.get('Files', 'spanishbertvocab'),
+        #                                            do_lower_case=do_lower_case,
+        #                                            additional_special_tokens=additional_tokens)
+        tokenizer = BertTokenizer(vocab_file=config.get('Files', 'spanishbertvocab'),
+                                                   do_lower_case=do_lower_case,
+                                                    additional_special_tokens=additional_tokens)
     return tokenizer
 
 if __name__ == '__main__':
