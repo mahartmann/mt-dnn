@@ -1,0 +1,36 @@
+ddinegrelationsall:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - 'false'
+  - 'true'
+  metric_meta:
+  - PRF
+  - PRFReport
+  n_class: 2
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
+ddinegrelationsallgold:
+  data_format: PremiseOnly
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - 'false'
+  - 'true'
+  metric_meta:
+  - PRF
+  - PRFReport
+  n_class: 2
+  loss: CeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: Classification
