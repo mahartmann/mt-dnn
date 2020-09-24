@@ -1,4 +1,4 @@
-iula#cues:
+iulaall#cues:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
@@ -18,18 +18,94 @@ iula#cues:
   - dev
   - test
   task_type: SeqenceLabeling
-iula#silvercues:
+  additional_features:
+  - sid
+nubesall#cues:
   data_format: Seqence
   encoder_type: BERT
   dropout_p: 0.3
   enable_san: False
   labels:
-    - 1
-    - 0
+  - "1"
+  - "0"
+  - "X"
+  - "SEP"
+  - "CLS"
   metric_meta:
-    - CLUEF
-  n_class: 2
+  - CLUEF
+  n_class: 5
   loss: SeqCeCriterion
   split_names:
-    - test
+  - train
+  - dev
+  - test
   task_type: SeqenceLabeling
+  additional_features:
+  - sid
+frenchall#cues:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "1"
+  - "0"
+  - "X"
+  - "SEP"
+  - "CLS"
+  metric_meta:
+  - CLUEF
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+bioall#cues:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "1"
+  - "0"
+  - "X"
+  - "SEP"
+  - "CLS"
+  metric_meta:
+  - CLUEF
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+sfuesall#cues:
+  data_format: Seqence
+  encoder_type: BERT
+  dropout_p: 0.3
+  enable_san: False
+  labels:
+  - "1"
+  - "0"
+  - "X"
+  - "SEP"
+  - "CLS"
+  metric_meta:
+  - CLUEF
+  n_class: 5
+  loss: SeqCeCriterion
+  split_names:
+  - train
+  - dev
+  - test
+  task_type: SeqenceLabeling
+  additional_features:
+  - sid
+
