@@ -1,4 +1,4 @@
-from preprocessing.downstream_tasks import read_drugs, read_gad, read_biorelex, read_cdr, read_ade_doc, read_ddi_relations, read_chemprot_relations
+from preprocessing.downstream_tasks import read_drugs, read_gad, read_biorelex, read_cdr, read_ade_doc, read_ddi_relations, read_m2c2assert, read_chemprot_relations
 from preprocessing.nested_xml import dfs, dfs3, build_surface, build_surface_ddi
 from preprocessing.data_splits import *
 import xml.etree.ElementTree as ET
@@ -84,13 +84,13 @@ def read_bioscope(fname, setting='augment', cue_type='negation', include_all=Fal
                                 if 'cue-{}-{}'.format(cue_type, cid) in all_tags:
                                     is_cue = 1
                                     if setting == 'augment':
-                                        print('{}\t{}\t{}'.format('CUE', 'I', ' '.join(get_all_tags(tag, c2p))))
-                                        toks.append('CUE')
+                                        print('{}\t{}\t{}'.format('[CUE]', 'I', ' '.join(get_all_tags(tag, c2p))))
+                                        toks.append('[CUE]')
                                         labels.append('I')
                                         label = 'I'
                                         cue_labelseq.append(is_cue)
                                     elif setting == 'replace':
-                                        t = 'CUE'
+                                        t = '[CUE]'
                                         label = 'I'
 
 
@@ -114,14 +114,14 @@ def read_bioscope(fname, setting='augment', cue_type='negation', include_all=Fal
     return data, cue_data
 
 def get_clue_annotated_data(sent_data):
-    seq = [elm for elm in sent_data[0][1] if elm != 'CUE']
+    seq = [elm for elm in sent_data[0][1] if elm != '[CUE]']
     labels = ['0'] *len(seq)
     for i, sent in enumerate([elm[1] for elm in sent_data]):
 
         idx = 0
         for tok in sent:
 
-            if tok != 'CUE':
+            if tok != '[CUE]':
                 idx += 1
             else:
                 labels[idx] = '1_{}'.format(i)
@@ -194,7 +194,7 @@ def read_sherlock(fname, setting='augment', include_all=False):
                         if setting == 'augment':
                             print('CUE\t{}\t{}'.format(neg, cue_print))
                             print('{}\t{}'.format(splt[3], neg))
-                            toks.append('CUE')
+                            toks.append('[CUE]')
                             labels.append(neg)
                             cue_labelseq.append(is_cue)
                     toks.append(splt[3])
@@ -401,10 +401,10 @@ def read_IULA_doc(fname_txt, fname_anno, setting, include_all):
                 if sent_label in tok2sent_labels(labels):
                     out_label = 'I'
                     print('{}\t{}'.format(tok, labels))
-                    if len([elm for elm in labels if 'NegMarker' in elm]) > 0:
+                    if len([elm for elm in labels if 'NegMarker' in elm or 'NegPredMarker' in elm or 'NegPolItem' in elm]) > 0:
                         is_cue = 1
                         if setting == 'augment':
-                            out_toks.append('CUE')
+                            out_toks.append('[CUE]')
                             out_labels.append(out_label)
                             cue_labelseq.append(is_cue)
                 else:
@@ -517,15 +517,28 @@ def read_sfu_en_doc(fname, setting,include_all):
                         if cue in l:
                             is_cue = 1
                             if setting == 'augment':
-                                print('{}\t{}'.format('CUE', lsurf))
-                                outtoks.append('CUE')
+                                print('{}\t{}'.format('[CUE]', lsurf))
+                                outtoks.append('[CUE]')
                                 outlabels.append(lsurf)
                                 cue_labelseq.append(is_cue)
 
                         print('{}\t{}'.format(t, lsurf))
-                        outtoks.append(t)
-                        outlabels.append(lsurf)
-                        cue_labelseq.append(is_cue)
+
+                        def replace_hexcodes(t):
+                            t = t.replace('\x85', ' ')
+                            t = t.replace('\x92', "'")
+                            t = t.replace('\x93', '"')
+                            t = t.replace('\x94', '"')
+                            t = t.replace('\x97', ' ')
+                            return t
+
+                        t = replace_hexcodes(t).strip()
+                        if t != ' ' and t != '':
+                            for subtok in t.split(' '):
+                                outtoks.append(subtok)
+                                outlabels.append(lsurf)
+                                cue_labelseq.append(is_cue)
+
                     sent_data.append([outlabels, outtoks, cue_labelseq])
                 if len(sent_data) > 0:
                     data.append(sent_data)
@@ -632,7 +645,7 @@ def read_sfu_es_doc(fname, setting,include_all):
                         is_cue = 1
                         if setting == 'augment':
                             print('CUE\t{}'.format(lsurf))
-                            outtoks.append('CUE')
+                            outtoks.append('[CUE]')
                             outlabels.append(lsurf)
                             cue_labelseq.append(is_cue)
                 else:
@@ -680,15 +693,18 @@ def read_ddi_doc(fname, setting,include_all):
 
     data = []
     cue_data = []
-    print('\n' + fname)
+    #print('\n' + fname)
     try:
         # if True:
         root = ET.parse(fname).getroot()
         for sentence in root.iter('sentence'):
             negtagss = [elm for elm in sentence.iter('negationtags')]
-            if include_all and len(negtagss) == 0:
-                pass
+            sent_tags = []
+            constituents = []
+            if not include_all and len(negtagss) == 0:
+                continue
             else:
+
                 for negtags in negtagss:
                     negtags.set('id', 'X')
 
@@ -704,41 +720,64 @@ def read_ddi_doc(fname, setting,include_all):
                     sent_tags = set(sent_tags)
             sent_data = []
             if include_all and len(sent_tags) == 0:
-                print("################## This sentence has no negation. Adding to ds")
-                sent_tags = [None]
-            for sent_tag in sent_tags:
-                print('\n{}'.format(sent_tag))
+                #print("################## This sentence has no negation. Adding to ds")
+                #print(sentence.attrib['text'])
                 out_toks = []
                 out_labels = []
                 cue_labelseq = []
-                for k, v in constituents[negtags]:
-                    is_cue = 0
-                    if k != None:
-                        k_labels = set(
-                                    ['{}_{}'.format(elm.attrib['id'], elm.tag) for elm in get_all_parents(v, c2p)])
-
-                        # check if scope
-                        if '{}_xcope'.format(sent_tag) in k_labels:
-                            out_label = 'I'
-                        else:
-                            out_label = 'O'
-
-                        # check if cue
-                        if '{}_cue'.format(sent_tag) in k_labels:
-                            is_cue = 1
-                            if setting == 'augment':
-                                print('CUE\t{}'.format(out_label))
-                                out_toks.append('CUE')
-                                out_labels.append(out_label)
-                                cue_labelseq.append(is_cue)
-
-                        for tok in k.split():
-                            print('{}\t{}'.format(tok, out_label))
-                            out_toks.append(tok)
-                            out_labels.append(out_label)
-                            cue_labelseq.append(is_cue)
-
+                for tok in sentence.attrib['text'].split():
+                    out_toks.append(tok)
+                    out_labels.append('O')
+                    cue_labelseq.append(0)
                 sent_data.append([out_labels, out_toks, cue_labelseq])
+            if len(sent_tags) > 0:
+                for sent_tag in sent_tags:
+                    #print(sentence.attrib['text'])
+                    #print('\n{}'.format(sent_tag))
+                    out_toks = []
+                    out_labels = []
+                    cue_labelseq = []
+                    for k, v in constituents[negtags]:
+                        is_cue = 0
+                        if k != None:
+                            #print('constituent: "{}"'.format(k))
+                            k_labels = set(
+                                        ['{}_{}'.format(elm.attrib['id'], elm.tag) for elm in get_all_parents(v, c2p)])
+
+                            # check if scope
+                            if '{}_xcope'.format(sent_tag) in k_labels:
+                                out_label = 'I'
+                            else:
+                                out_label = 'O'
+
+                            # check if cue
+                            if '{}_cue'.format(sent_tag) in k_labels:
+                                is_cue = 1
+                                if setting == 'augment':
+                                    #print('CUE\t{}'.format(out_label))
+                                    out_toks.append('[CUE]')
+                                    out_labels.append(out_label)
+                                    cue_labelseq.append(is_cue)
+
+                            def split_keep_delim(text, delim):
+                                splt =  [e + delim for i, e in enumerate(text.split(delim)) if e]
+                                if not text.endswith(delim):
+                                    splt[-1] = splt[-1].split(delim)[0]
+                                return splt
+
+                            for c, tok in enumerate(split_keep_delim(k, ' ')):
+                                if not k.startswith(' ') and len(out_toks) > 0 and c == 0 and tok.strip() in set([elm for elm in ',.[]{}()?!']):
+                                    out_toks[-1] += tok
+
+
+                                else:
+                                    out_toks.append(tok)
+                                    out_labels.append(out_label)
+                                    cue_labelseq.append(is_cue)
+                                #print(out_toks)
+
+                    assert len(out_labels) == len(out_toks)
+                    sent_data.append([out_labels, out_toks, cue_labelseq])
             if len(sent_data) > 0:
                 data.append(sent_data)
                 cue_data.append(get_clue_annotated_data(sent_data))
@@ -781,7 +820,7 @@ def read_ita_doc(fname, setting, include_all):
     for clue in mark.iter('CUE-NEG'):
         for t in clue.iter('token_anchor'):
             tid = t.attrib['t_id']
-            tid2anno.setdefault(tid, set()).add('{}_scope{}'.format('CUE', clue.attrib['scope']))
+            tid2anno.setdefault(tid, set()).add('{}_scope{}'.format('[CUE]', clue.attrib['scope']))
     for clue in mark.iter('SCOPE-NEG'):
         sids = set()
         scope_toks = []
@@ -822,7 +861,7 @@ def read_ita_doc(fname, setting, include_all):
                         is_cue = 1
                         if setting == 'augment':
 
-                            out_toks.append('CUE')
+                            out_toks.append('[CUE]')
                             out_labels.append(out_label)
                             all_labelss.append(labels)
                             cue_labelseq.append(is_cue)
@@ -1002,7 +1041,7 @@ def read_nubes_doc(fname_txt, fname_anno, setting, include_all):
                     if len([elm for elm in labels if 'NegSynMarker' in elm or 'NegLexMarker' in elm or 'NegMorMarker' in elm]) > 0:
                         is_cue = 1
                         if setting == 'augment':
-                            out_toks.append('CUE')
+                            out_toks.append('[CUE]')
                             out_labels.append(out_label)
                             cue_labelseq.append(is_cue)
                 else:
@@ -1093,7 +1132,7 @@ def read_socc_doc(fname, setting, include_all):
                 if sent_cue in annos:
                     is_cue = 1
                     if setting == 'augment':
-                        out_tok = 'CUE'
+                        out_tok = '[CUE]'
                         out_toks.append(out_tok)
                         cue_labelseq.append(is_cue)
                         print(out_tok, display_label)
@@ -1156,7 +1195,7 @@ def read_cas(fname, setting='augment', include_all=False):
                 if tid in tid2cue:
                     is_cue = 1
                     if setting == 'augment':
-                        toks.append('CUE')
+                        toks.append('[CUE]')
                         labels.append(neg)
                         cue_labelseq.append(is_cue)
                 toks.append(tok)
@@ -1209,7 +1248,7 @@ def read_dtneg(fname, setting='augment'):
                         is_clue = False
                     else:
                         if is_clue and setting =='augment':
-                            out_toks.append('CUE')
+                            out_toks.append('[CUE]')
                             out_labels.append(label)
                             cue_labelseq.append(is_clue)
                         out_toks.append(tok.strip('{}'))
@@ -1235,9 +1274,9 @@ def get_clues(data):
             if i == len(seq) -1:
                 clues.add(' '.join(cue))
                 break
-            if tok == 'CUE':
+            if tok == '[CUE]':
                 cue.append(seq[i + 1])
-                if i + 2 > len(seq)-1 or seq[i + 2] != 'CUE':
+                if i + 2 > len(seq)-1 or seq[i + 2] != '[CUE]':
                     clues.add(' '.join(cue))
                     cue = []
     return clues
@@ -1340,7 +1379,7 @@ tid = line.split('\t')[0]
                     if len([elm for elm in labels if 'NegMarker' in elm]) > 0:
                         is_cue = 1
                         if setting == 'augment':
-                            out_toks.append('CUE')
+                            out_toks.append('[CUE]')
                             out_labels.append(out_label)
                             cue_labelseq.append(is_cue)
                 else:
@@ -1372,6 +1411,25 @@ def load_data_from_tsv(fname):
             data.append([labels, seq])
     return data
 
+def count_cues(cue_data):
+    cues = []
+    for elm in cue_data:
+        toks = elm[1]
+        labels = elm[0]
+        cues.append(' '.join([toks[i].lower() for i, l in enumerate(labels) if l != '0']))
+    from collections import Counter
+    total = float(len(cues))
+    c = Counter(cues)
+    differents = len(c)
+    print('{} different cues'.format(total))
+    cum_sum = 0
+    cum_sum_vals = []
+    for key, val in c.most_common():
+        print('{}\t{} ( {} perc.)'.format(key, val, (val/total)*100))
+        cum_sum += (val/total)*100
+        cum_sum_vals.append(cum_sum)
+    print(cum_sum_vals[:1000])
+
 if __name__=="__main__":
 
     datasets = ['biofull', 'bioabstracts', 'bio',
@@ -1387,7 +1445,8 @@ if __name__=="__main__":
                 'dtnegall', 'soccall',
                 'french', 'frenchall']
 
-    #datasets = ['bio', 'sherlocken', 'sfuen','ddi', 'socc', 'dtneg']
+    datasets = ['m2c2assert']
+    """
     datasets = ['biofullall', 'bioabstractsall', 'bioall',
                 'sherlockenall', 'sherlockzhall',
                 'iulaall',
@@ -1396,7 +1455,7 @@ if __name__=="__main__":
                 'nubesall',
                 'dtnegall', 'soccall',
                 'french', 'frenchall']
-
+    """
     # parse bioscope abstracts
     import configparser
 
@@ -1446,7 +1505,7 @@ if __name__=="__main__":
 
 
 
-    setting = 'joint'
+    setting = 'augment'
 
     for ds in datasets:
         if ds == 'biofull':
@@ -1533,6 +1592,7 @@ if __name__=="__main__":
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            count_cues(cue_data)
         elif ds == 'iulaall':
             data, cue_data = read_IULA(config.get('Files', ds.split('all')[0]), setting=setting, include_all=True)
             if setting == 'nocond' or setting == 'joint':
@@ -1604,6 +1664,7 @@ if __name__=="__main__":
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            count_cues(cue_data)
         elif ds == 'frenchall':
             data, cue_data = read_cas(config.get('Files', 'cas'), setting=setting, include_all=True)
             data_ex, cue_data_ex = read_cas(config.get('Files', 'essai'), setting=setting, include_all=True)
@@ -1660,6 +1721,7 @@ if __name__=="__main__":
             idxs = write_train_dev_test_data(os.path.join(outpath, ds), data, setting=setting)
             if setting == 'augment':
                 write_train_dev_test_cue_data(os.path.join(outpath, ds), cue_data, idxs)
+            count_cues(cue_data)
         elif ds == 'nubesall':
             data, cue_data = read_nubes(config.get('Files', 'nubes'), setting=setting, include_all=True)
             print(len(data))
@@ -1705,6 +1767,10 @@ if __name__=="__main__":
             train_data = read_biorelex(config.get('Files', 'biorelex_train'))
             test_data = read_biorelex(config.get('Files', 'biorelex_dev'))
             write_data_gad_format(os.path.join(outpath, ds), train_data, test_data)
+        elif ds == 'm2c2assert':
+            data = read_m2c2assert('{}/beth'.format(config.get('Files', 'm2c2assert')))
+            data.extend(read_m2c2assert('{}/partners'.format(config.get('Files', 'm2c2assert'))))
+            idxs = write_train_dev_test_data_m2c2(os.path.join(outpath, ds), data)
         elif ds == 'cdr':
             train_data = read_cdr(config.get('Files', 'cdr_train'))
             #test_data = read_biorelex(config.get('Files', 'biorelex_dev'))

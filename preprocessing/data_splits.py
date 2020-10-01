@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import json
+import itertools
 """
 produce train/test/dev splits
 """
@@ -59,6 +60,56 @@ def write_train_dev_test_data(fstem, data, setting, sample_equal=False):
         write_split('{}_{}.tsv'.format(fstem_out, splt), out_data)
         print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem_out, splt) ))
     return  split_idxs
+
+
+def write_train_dev_test_data_m2c2(fstem, data, sample_equal=False):
+    """
+    if sample_equal is True, we sample identical amounts of sentences with and without negation
+    """
+    split_idxs = generate_train_dev_splits(len(data))
+    for i, splt in enumerate(['train',  'test']):
+        idxs = split_idxs[i]
+        out_data = []
+        for sid, idx in enumerate(idxs):
+            elm = data[idx]
+            uid = len(out_data)
+            out_data.append([uid,elm['labels'],elm['seq']])
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data,json_format=False)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
+    return  split_idxs
+
+def write_train_dev_test_data_ddi(fstem, train_data, test_data):
+    """
+      split train_data into train/dev, test_split is fixed
+      :return:
+    """
+    split_idxs = generate_train_dev_splits(len(train_data))
+    for i, splt in enumerate(['train', 'dev']):
+        idxs = split_idxs[i]
+        out_data = []
+        for sid, idx in enumerate(idxs):
+            for cid, elm in enumerate(train_data[idx]):
+                uid = len(out_data)
+                print(elm)
+                out_data.append({'uid': uid,
+                                 'seq': elm['seq'],
+                                 'labels': elm['label'],
+                                 'sid': '{}_{}'.format(sid, cid)})
+        write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=True)
+        print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(idxs), len(out_data),  '{}_{}.tsv'.format(fstem, splt) ))
+    out_data = []
+    splt = 'test'
+    for sid, sent_data in enumerate(test_data):
+        for cid, elm in enumerate(sent_data):
+            uid = len(out_data)
+            out_data.append({'uid': uid,
+                             'seq': elm['seq'],
+                             'labels': elm['label'],
+                             'sid': '{}_{}'.format(sid, cid)})
+    write_split('{}_{}.tsv'.format(fstem, splt), out_data, json_format=True)
+    print('{} has {} sentences and {} instances. Writing to {}'.format(splt, len(test_data), len(out_data),
+                                                                           '{}_{}.tsv'.format(fstem, splt)))
+    return split_idxs
 
 def write_train_dev_test_cue_data(fstem, data, split_idxs):
     for i, splt in enumerate(['train', 'dev', 'test']):
@@ -182,26 +233,39 @@ def sample_scope_annotations(fnamestem, outnamestem):
     def split_data(data):
         notnegated = []
         negated = []
-        for elm in data:
+        for sent in data:
+            #print(sent)
+            elm = sent[0]
             labels = set(elm['labels'])
             if len(labels) == 1 and 'O' in labels:
-                notnegated.append(elm)
+                notnegated.append(sent)
             else:
-                negated.append(elm)
+                negated.append(sent)
         print('{} negated, {} nonnegated'.format(len(negated), len(notnegated)))
         return negated, notnegated
 
     np.random.seed(42)
 
     def load_data(fname):
+        d = []
         with open(fname) as f:
-            d = []
+
+            sent = []
+            sid = '-1'
             for line in f:
-                d.append(json.loads(line))
-        return d
+                elm = json.loads(line)
+                if elm['sid'].split('_')[0] == sid:
+                    sent.append(elm)
+                else:
+                    d.append(sent)
+                    sent = [elm]
+                sid = elm['sid'].split('_')[0]
+            d.append(sent)
+
+        return d[1:]
 
     d = load_data(fnamestem + '_train.tsv')
-
+    print(d[0])
     negated, notnegated = split_data(d)
     sampled_data = []
     if len(negated) <= len(notnegated):
@@ -214,14 +278,20 @@ def sample_scope_annotations(fnamestem, outnamestem):
         sampled_data.extend(negated[:len(notnegated)])
     np.random.shuffle(sampled_data)
     # rewrite uids
-    for i, elm in enumerate(sampled_data):
-        elm['uid'] = i
+    for i, sents in enumerate(sampled_data):
+        for elm in sents:
+            elm['uid'] = i
     split_data(sampled_data)
+
+    sampled_data = list(itertools.chain.from_iterable(sampled_data))
+
     write_split(outnamestem + '_train.tsv', sampled_data, json_format=True)
 
     for split in ['dev', 'test']:
         d = load_data(fnamestem + '_{}.tsv'.format(split))
+
         split_data(d)
+        d = list(itertools.chain.from_iterable(d))
         write_split(outnamestem +  '_{}.tsv'.format(split), d, json_format=True)
 
 
@@ -244,9 +314,9 @@ if __name__=="__main__":
                 'itaall',
                 'nubesall',
                 'dtnegall', 'soccall','frenchall']
-    #datasets = [
-        #'nubesall']
-    setting = 'joint'
+    datasets = [
+        'iula all']
+    setting = ''
     for ds in datasets:
         stem = '{}{}'.format(ds, setting)
         fnamestem = os.path.join(outpath, stem)

@@ -1,7 +1,15 @@
 import csv
 import json
 from xml.etree import ElementTree as ET
+import re
+import os
 
+def read_lines(fname):
+    lines = []
+    with open(fname) as f:
+        for line in f:
+            lines.append(line.strip())
+    return lines
 
 def read_drugs(fname, setting=None):
     with open(fname, newline='', encoding='utf-8') as csvfile:
@@ -91,9 +99,9 @@ def replace_mentions(replacements, text):
         end = span[1]
         pid = span[2]
         if i == 0:
-            new_text += text[:start] + '${}{}$'.format(replacements[span], pid)
+            new_text += text[:start] + '@{}{}$'.format(replacements[span], pid)
         else:
-            new_text += text[spans[i - 1][1]:start] + '${}{}$'.format(replacements[span], pid)
+            new_text += text[spans[i - 1][1]:start] + '@{}{}$'.format(replacements[span], pid)
         if i == len(spans) - 1:
             new_text += text[end:]
     new_text = new_text.replace('  ', ' ')
@@ -251,10 +259,10 @@ def read_ddi_relations(fname):
         data = []
         for i, row in enumerate(reader):
 
-
             data.append({'uid': i, 'seq': row['sentence'], 'labels': row['label'], 'sid': row['index']})
-
         return data
+
+
 
 def read_chemprot_relations(fname):
     with open(fname, newline='', encoding='utf-8') as csvfile:
@@ -266,6 +274,88 @@ def read_chemprot_relations(fname):
             data.append({'uid': i, 'seq': row['sentence'], 'labels': row['label'], 'sid': row['index']})
         return data
 
+
+def read_ddi_neg_relations(fname):
+    try:
+        root = ET.parse(fname).getroot()
+        entities = {}
+        relations = {}
+        outdata = []
+        out_sent = []
+        for sentence in root.iter('sentence'):
+            sent_text = sentence.attrib['text']
+            for entity in sentence.iter('entity'):
+                offsets = entity.attrib['charOffset'].split(';')
+                for ofs in offsets:
+                    splt = ofs.split('-')
+
+                    start = int(splt[0])
+                    end = int(splt[1])+1
+
+                    did = entity.attrib['id']
+                    type = entity.attrib['type']
+                    text = entity.attrib['text']
+                    entities[did] = {'start': start, 'end': end, 'type': type, 'text': text}
+            for pair in sentence.iter('pair'):
+                label = pair.attrib['ddi']
+                e1 = pair.attrib['e1']
+                e2 = pair.attrib['e2']
+                replaced_text = replace_mentions(text=sent_text, replacements={(entities[e1]['start'], entities[e1]['end'],''): 'DRUG',
+                                 (entities[e2]['start'], entities[e2]['end'],''): 'DRUG'})
+                out_sent.append((sent_text, replaced_text, label))
+            outdata.append(out_sent)
+            out_sent = []
+        return outdata
+    except ET.ParseError:
+        raise ET.ParseError
+
+
+
+def read_m2c2assert(dirname):
+    data = []
+    ts = set()
+    as_ = set()
+    targets = set(['absent', 'present'])
+
+
+    for f in [elm.split('.txt')[0] for elm in os.listdir('{}/txt'.format(dirname)) if elm.endswith('.txt')]:
+        txt = read_lines('{}/txt/{}.txt'.format(dirname, f))
+        _ast = read_lines('{}/ast/{}.ast'.format(dirname, f))
+        rel = read_lines('{}/rel/{}.rel'.format(dirname, f))
+        concept = read_lines('{}/concept/{}.con'.format(dirname, f))
+
+        for anno in _ast:
+            pattern = re.compile('c=\"(.*?)\" ([^ ]*) ([^|]*).*?t=\"(.*?)\".*?a=\"(.*?)\"')
+            m = re.match(pattern, anno)
+            c = m.group(1)
+            id1 = m.group(2)
+            id2 = m.group(3)
+            lid = int(id1.split(':')[0])
+            lid2 = int(id2.split(':')[0])
+            tid1 = int(id1.split(':')[1])
+            tid2 = int(id2.split(':')[1])
+            t = m.group(4)
+            a = m.group(5)
+            ts.add(t)
+            as_.add(a)
+            assert lid == lid2
+            line = txt[lid - 1]
+            c_toks = line.split()[tid1:tid2 + 1]
+            if len(c_toks) > len(c.split()):
+                if ' '.join(c_toks[:len(c.split())]) == c:
+                    c_toks = c_toks[:len(c.split())]
+                else:
+                    c_toks = c_toks[1:]
+            if ' '.join(c_toks) in line:
+                seq = line.replace(' '.join(c_toks), '@CONCEPT$')
+                if a in targets:
+                    elm = {}
+                    elm['labels'] = a
+                    elm['seq'] = seq
+                    data.append(elm)
+                print('{} --> {}\n\n'.format(seq, a))
+    return data
+
 if __name__=="__main__":
     import configparser
     import os
@@ -273,5 +363,17 @@ if __name__=="__main__":
     config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     config.read(cfg)
 
-    for split in ['train']:
-        read_ddi_relations(os.path.join(config.get('Files', 'ddi_relations_path'), 'train.tsv'))
+    #for split in ['train']:
+    #   read_ddi_relations(os.path.join(config.get('Files', 'ddi_relations_path'), 'train.tsv')),
+    outdata = []
+    p = '/home/mareike/PycharmProjects/negscope/data/ddi_drug/NegDrugBank2013/TrainNegDrugbank2013/'
+    for f in [p + f for f in os.listdir(p) if f.endswith('ddi_cleaned.xml')]:
+        try:
+            neg_data = read_ddi_doc(f)
+            outdata.extend(read_ddi_neg_relations(f))
+        except ET.ParseError: pass
+    for rel_sent, neg_sent in zip(outdata, neg_data):
+        print('\n\n')
+        print(neg_sent)
+        for elm in rel_sent:
+            print('{}\n{}\n{}\n'.format(elm[0], elm[1], elm[2]))
