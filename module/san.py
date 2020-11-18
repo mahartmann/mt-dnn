@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from module.dropout_wrapper import DropoutWrapper
 from module.similarity import FlatSimilarityWrapper, SelfAttnWrapper
 from module.my_optim import weight_norm as WN
+from transformers.modeling_bert import BertPredictionHeadTransform
+
 
 SMALL_POS_NUM=1.0e-30
 
@@ -113,8 +115,9 @@ class SANClassifier(nn.Module):
 class MaskLmHeader(nn.Module):
     """Mask LM
     """
-    def __init__(self, embedding_weights=None, bias=False):
+    def __init__(self, config=None, embedding_weights=None, bias=False):
         super(MaskLmHeader, self).__init__()
+        self.transform = BertPredictionHeadTransform(config)
         self.decoder = nn.Linear(embedding_weights.size(1),
                                  embedding_weights.size(0),
                                  bias=bias)
@@ -122,6 +125,21 @@ class MaskLmHeader(nn.Module):
         self.nsp = nn.Linear(embedding_weights.size(1), 2)
 
     def forward(self, hidden_states):
-        mlm_out = self.decoder(hidden_states)
+        ts_hidden_states = self.transform(hidden_states)
+        mlm_out = self.decoder(ts_hidden_states)
         nsp_out = self.nsp(hidden_states[:, 0, :])
         return mlm_out, nsp_out
+    
+    
+class BertMLMHeadTransform(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.transform_act_fn = config.hidden_act
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+
+    def forward(self, hidden_states):
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.transform_act_fn(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states)
+        return hidden_states
