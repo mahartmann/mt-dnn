@@ -114,9 +114,9 @@ class SANBertNetwork(nn.Module):
             elif task_type == TaskType.MaskLM:
                 if opt['encoder_type'] == EncoderModelType.ROBERTA:
                     # TODO: xiaodl
-                    out_proj = MaskLmHeader(config=self.bert.config, embedding_weights=self.bert.embeddings.word_embeddings.weight)
+                    out_proj = MaskLmHeader(bert_model_type=opt['bert_model_type'], config=self.bert.config, embedding_weights=self.bert.embeddings.word_embeddings.weight)
                 else:
-                    out_proj = MaskLmHeader(config=self.bert.config, embedding_weights=self.bert.embeddings.word_embeddings.weight)
+                    out_proj = MaskLmHeader(bert_model_type=opt['bert_model_type'], config=self.bert.config, embedding_weights=self.bert.embeddings.word_embeddings.weight)
             else:
                 if decoder_opt == 1:
                     out_proj = SANClassifier(hidden_size, hidden_size, lab, opt, prefix='answer', dropout=dropout)

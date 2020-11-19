@@ -147,12 +147,12 @@ class MlmCriterion(Criterion):
         """
         #import pdb; pdb.set_trace()
         mlm_y, y = target
-        mlm_p, nsp_p = input
+        mlm_p = input
         mlm_p = mlm_p.view(-1, mlm_p.size(-1))
         mlm_y = mlm_y.view(-1)
         mlm_loss = F.cross_entropy(mlm_p, mlm_y, ignore_index=ignore_index)
-        nsp_loss = F.cross_entropy(nsp_p, y)
-        loss = mlm_loss + nsp_loss
+        #nsp_loss = F.cross_entropy(nsp_p, y)
+        loss = mlm_loss #+ nsp_loss
         loss = loss * self.alpha
         return loss
 
